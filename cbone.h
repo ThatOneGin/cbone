@@ -39,14 +39,20 @@ typedef HANDLE fd;
 #define path_sep "\\"
 #endif
 
-#if defined(__GNUC__)
-#define cc "gcc"
-#elif defined(__clang__)
-#define cc "clang"
-#elif defined(__MSC_VER)
-#define cc "cl.exe"
-#else
-#define cc "cc"
+#ifdef __GNUC__
+  #define cc "gcc"
+#endif
+
+#ifdef __clang__
+  #define cc "clang"
+#endif
+
+#ifdef __MSC_VER
+  #define cc "cl.exe"
+#endif
+
+#ifndef cc
+  #define cc "cc"
 #endif
 
 #include <assert.h>
