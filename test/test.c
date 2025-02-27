@@ -26,6 +26,7 @@ int main(int argc, char **argv) {
   REBUILD_SELF(argc, argv);
   
   build_tool("mybillionaireapp");
+	// actually prediction
   build_tool("minecraft2");
   return 0;
 }

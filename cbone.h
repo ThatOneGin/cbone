@@ -64,6 +64,7 @@ typedef HANDLE fd;
 typedef struct {
   char **elm;
   size_t size;
+  size_t capacity;
 } Str_Array;
 
 typedef struct {
@@ -82,12 +83,12 @@ void assert_with_errmsg(int expr, char *errmsg);
 
 #define PATH(...) concat_str_array(path_sep, make_str_array(__VA_ARGS__, NULL))
 #define CONCAT(...) concat_str_array("", make_str_array(__VA_ARGS__, NULL))
-#define CMD(...)                                                               \
-  do {                                                                         \
-    Build_Arg arg = {.data = make_str_array(__VA_ARGS__, NULL)};               \
-    run_cmd(arg);                                                              \
-    free(arg.data.elm);                                                        \
-  } while (0)
+#define CMD(...)                                                \
+do {                                                            \
+  Build_Arg arg = {.data = make_str_array(__VA_ARGS__, NULL)};  \
+  run_cmd(arg);                                                 \
+  free(arg.data.elm);                                           \
+} while (0)
 
 char *str_concat(char *s1, char *s2) {
   char *buffer = malloc(strlen(s1) + strlen(s2) + 1);
@@ -294,15 +295,96 @@ int modified_after(char *f1, char *f2) {
 #endif
 }
 
-#define REBUILD_SELF(argc, argv)                                               \
-  {                                                                            \
-    assert_with_errmsg(argc >= 1, "no args... how?");                          \
-    char *src_file = __FILE__;                                                 \
-    char *target = argv[0];                                                    \
-                                                                               \
-    if (modified_after(src_file, target)) {                                    \
-      CMD(cc, "-o", target, src_file);                                         \
-    }                                                                          \
-  }
+#define REBUILD_SELF(argc, argv)                    \
+do {                                                \
+  assert_with_errmsg(argc >= 1, "no args... how?"); \
+  char *src_file = __FILE__;                        \
+  char *target = argv[0];                           \
+                                                    \
+  if (modified_after(src_file, target)) {           \
+    CMD(cc, "-o", target, src_file);                \
+  }                                                 \
+} while(0)
+
+/*
+**Dynamic arrays for utilities
+
+DA_DEFAULT_CAP: minimum capacity for arrays (customizable)
+DA_ASSERT: assertion method used in errors
+
+DA_FREE: free an dynamic array.
+
+DA_PUSH: push an element to the front of an array
+
+DA_POP: remove an element on the front of the array.
+
+DA_PUSH_AT: push an element at position (adjust others to fit)
+
+DA_POP_AT: remove an element at position (adjust others to fill)
+
+DA_GET: gets an element at given position, if the position is greater
+than the size, it will give the last element. Otherwise if it underflows, the first.
+*/
+
+#ifndef DA_DEFAULT_CAP
+#define DA_DEFAULT_CAP 64
+#endif
+
+#ifndef DA_ASSERT
+#define DA_ASSERT assert
+#endif
+
+#define LOG(pref, str) (fprintf(stdout, pref str))
+#define ERROR(msg) LOG("Error:", msg)
+
+#define DA_FREE(arr)\
+do {																			\
+  if (arr.size > 0 && arr.capacity > 0) {	\
+		free(arr.items);											\
+  }																				\
+} while (0)
+
+#define DA_PUSH(arr, elm)																							\
+do {																																	\
+	if (arr.size >= arr.capacity) {																			\
+		if (arr.capacity == 0) arr.capacity = DA_DEFAULT_CAP;							\
+		else arr.capacity *= 2;																						\
+		arr.items = realloc(arr.items, arr.capacity*sizeof(*arr.items));	\
+		if (arr.items == NULL) {																					\
+      ERROR("DA_PUSH fail: Realloc Error.");													\
+			exit(1);																												\
+    }																																	\
+	}																																		\
+	arr.items[arr.size++] = (elm);																			\
+} while(0)
+
+#define DA_POP(arr)												\
+do {																			\
+	if (arr.capacity > 0 && arr.size > 0) {	\
+		arr.size--;														\
+	}																				\
+} while(0)
+
+#define DA_POP_AT(arr, pos)																	\
+do {																												\
+  if ((pos) < arr.size) {																		\
+    for (size_t i = (pos); i < (size_t) arr.size - 1; i++) {\
+      arr.items[i] = arr.items[i+1];												\
+    }																												\
+    arr.size--;																							\
+  }																													\
+} while(0)
+
+#define DA_GET(arr, pos) ((pos) >= 0 ? arr.size > (pos) ? arr.items[(pos)] : arr.items[arr.size-1] : arr.items[0])
+
+#define DA_PUSH_AT(arr, elm, pos)							\
+do {																					\
+  if (arr.size + (pos) < arr.capacity) {			\
+    for (size_t i = arr.size; i > pos; i--) {	\
+      arr.items[i] = arr.items[i-1];					\
+    }																					\
+  }																						\
+} while(0)
+
 #endif // CBONE_IMPL
 #endif // CBONE_H
