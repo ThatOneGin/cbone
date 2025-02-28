@@ -11,8 +11,8 @@ void build_tool(char *tool) {
 
   free(aspath);
   free(targetdotc);
-  free(target.elm);
-  free(buildsep.elm);
+  free(target.items);
+  free(buildsep.items);
 
   /* using macros:
     CMD(cc, "-o", PATH("build", "bin", tool), CONCAT(tool, ".c"));
