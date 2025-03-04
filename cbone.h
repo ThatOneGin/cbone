@@ -87,17 +87,6 @@ void print_cmd(char *cmd);
 void info_cmd(char *msg);
 void assert_with_errmsg(int expr, char *errmsg);
 
-#ifdef CBONE_IMPL
-
-#define PATH(...) concat_str_array(path_sep, make_str_array(__VA_ARGS__, NULL))
-#define CONCAT(...) concat_str_array("", make_str_array(__VA_ARGS__, NULL))
-#define CMD(...)                                                               \
-  do {                                                                         \
-    Build_Arg arg = {.data = make_str_array(__VA_ARGS__, NULL)};               \
-    run_cmd(arg);                                                              \
-    free(arg.data.items);                                                      \
-  } while (0)
-
 /*
 **Dynamic arrays for utilities
 
@@ -137,49 +126,61 @@ first.
     }                                                                          \
   } while (0)
 
-#define DA_PUSH(arr, elm)                                                      \
-  do {                                                                         \
-    if (arr.size >= arr.capacity) {                                            \
-      if (arr.capacity == 0)                                                   \
-        arr.capacity = DA_DEFAULT_CAP;                                         \
-      else                                                                     \
-        arr.capacity *= 2;                                                     \
-      arr.items = realloc(arr.items, arr.capacity * sizeof(*arr.items));       \
-      if (arr.items == NULL) {                                                 \
-        ERROR("DA_PUSH fail: Realloc Error.");                                 \
-        exit(1);                                                               \
-      }                                                                        \
-    }                                                                          \
-    arr.items[arr.size++] = (elm);                                             \
-  } while (0)
+#define DA_PUSH(arr, elm)                                                    \
+do {                                                                         \
+  if (arr.size >= arr.capacity) {                                            \
+    if (arr.capacity == 0)                                                   \
+      arr.capacity = DA_DEFAULT_CAP;                                         \
+    else                                                                     \
+      arr.capacity *= 2;                                                     \
+    arr.items = realloc(arr.items, arr.capacity * sizeof(*arr.items));       \
+    if (arr.items == NULL) {                                                 \
+      ERROR("DA_PUSH fail: Realloc Error.");                                 \
+      exit(1);                                                               \
+    }                                                                        \
+  }                                                                          \
+  arr.items[arr.size++] = (elm);                                             \
+} while (0)
 
-#define DA_POP(arr)                                                            \
-  do {                                                                         \
-    if (arr.capacity > 0 && arr.size > 0) {                                    \
-      arr.size--;                                                              \
-    }                                                                          \
-  } while (0)
+#define DA_POP(arr)                                                          \
+do {                                                                         \
+  if (arr.capacity > 0 && arr.size > 0) {                                    \
+    arr.size--;                                                              \
+  }                                                                          \
+} while (0)
 
-#define DA_POP_AT(arr, pos)                                                    \
-  do {                                                                         \
-    if ((pos) < arr.size) {                                                    \
-      for (size_t i = (pos); i < (size_t)arr.size - 1; i++) {                  \
-        arr.items[i] = arr.items[i + 1];                                       \
-      }                                                                        \
-      arr.size--;                                                              \
-    }                                                                          \
-  } while (0)
+#define DA_POP_AT(arr, pos)                                                  \
+do {                                                                         \
+  if ((pos) < arr.size) {                                                    \
+    for (size_t i = (pos); i < (size_t)arr.size - 1; i++) {                  \
+      arr.items[i] = arr.items[i + 1];                                       \
+    }                                                                        \
+    arr.size--;                                                              \
+  }                                                                          \
+} while (0)
 
 #define DA_GET(arr, pos) ((pos) >= 0 ? arr.size > (pos) ? arr.items[(pos)] : arr.items[arr.size - 1] : arr.items[0])
 
-#define DA_PUSH_AT(arr, elm, pos)                                              \
+#define DA_PUSH_AT(arr, elm, pos)                                            \
+do {                                                                         \
+  if (arr.size + (pos) < arr.capacity) {                                     \
+    for (size_t i = arr.size; i > pos; i--) {                                \
+      arr.items[i] = arr.items[i - 1];                                       \
+    }                                                                        \
+    arr.items[pos] = elm;                                                    \
+  }                                                                          \
+} while (0)
+
+/* Implementation section */
+#ifdef CBONE_IMPL
+
+#define PATH(...) concat_str_array(path_sep, make_str_array(__VA_ARGS__, NULL))
+#define CONCAT(...) concat_str_array("", make_str_array(__VA_ARGS__, NULL))
+#define CMD(...)                                                               \
   do {                                                                         \
-    if (arr.size + (pos) < arr.capacity) {                                     \
-      for (size_t i = arr.size; i > pos; i--) {                                \
-        arr.items[i] = arr.items[i - 1];                                       \
-      }                                                                        \
-      arr.items[pos] = elm;                                                    \
-    }                                                                          \
+    Build_Arg arg = {.data = make_str_array(__VA_ARGS__, NULL)};               \
+    run_cmd(arg);                                                              \
+    free(arg.data.items);                                                      \
   } while (0)
 
 char *str_concat(char *s1, char *s2) {
