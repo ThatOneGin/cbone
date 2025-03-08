@@ -6,7 +6,7 @@ Cbone is a one-header library to make build files
 
 The main idea of this is that you only need a C compiler to build a project.
 
-Take a look into [test.c](./test/test.c) for a more detailed overview.
+Take a look into [this](examples/) folder for a more detailed overview.
 
 One feature it has is self rebuilding, if the macro ```REBUILD_SELF``` encounters any difference between the executable build file and the source code, it tries to recompile itself.
 
