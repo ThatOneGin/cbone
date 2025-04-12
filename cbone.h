@@ -125,53 +125,53 @@ first.
 
 #define DA_FREE(arr)                                                           \
   do {                                                                         \
-    if (arr.size > 0 && arr.capacity > 0) {                                    \
-      free(arr.items);                                                         \
+    if ((arr).size > 0 && (arr).capacity > 0) {                                    \
+      free((arr).items);                                                         \
     }                                                                          \
   } while (0)
 
 #define DA_PUSH(arr, elm)                                                    \
 do {                                                                         \
-  if (arr.size >= arr.capacity) {                                            \
-    if (arr.capacity == 0)                                                   \
-      arr.capacity = DA_DEFAULT_CAP;                                         \
+  if ((arr).size >= (arr).capacity) {                                            \
+    if ((arr).capacity == 0)                                                   \
+      (arr).capacity = DA_DEFAULT_CAP;                                         \
     else                                                                     \
-      arr.capacity *= 2;                                                     \
-    arr.items = realloc(arr.items, arr.capacity * sizeof(*arr.items));       \
-    if (arr.items == NULL) {                                                 \
+      (arr).capacity *= 2;                                                     \
+    (arr).items = realloc((arr).items, (arr).capacity * sizeof(*(arr).items));       \
+    if ((arr).items == NULL) {                                                 \
       ERROR("DA_PUSH fail: Realloc Error.");                                 \
       exit(1);                                                               \
     }                                                                        \
   }                                                                          \
-  arr.items[arr.size++] = (elm);                                             \
+  (arr).items[(arr).size++] = (elm);                                             \
 } while (0)
 
 #define DA_POP(arr)                                                          \
 do {                                                                         \
-  if (arr.capacity > 0 && arr.size > 0) {                                    \
-    arr.size--;                                                              \
+  if ((arr).capacity > 0 && (arr).size > 0) {                                    \
+    (arr).size--;                                                              \
   }                                                                          \
 } while (0)
 
 #define DA_POP_AT(arr, pos)                                                  \
 do {                                                                         \
-  if ((pos) < arr.size) {                                                    \
-    for (size_t i = (pos); i < (size_t)arr.size - 1; i++) {                  \
-      arr.items[i] = arr.items[i + 1];                                       \
+  if ((pos) < (arr).size) {                                                    \
+    for (size_t i = (pos); i < (size_t)(arr).size - 1; i++) {                  \
+      (arr).items[i] = (arr).items[i + 1];                                       \
     }                                                                        \
-    arr.size--;                                                              \
+    (arr).size--;                                                              \
   }                                                                          \
 } while (0)
 
-#define DA_GET(arr, pos) ((pos) >= 0 ? arr.size > (pos) ? arr.items[(pos)] : arr.items[arr.size - 1] : arr.items[0])
+#define DA_GET(arr, pos) ((pos) >= 0 ? (arr).size > (pos) ? (arr).items[(pos)] : (arr).items[(arr).size - 1] : (arr).items[0])
 
 #define DA_PUSH_AT(arr, elm, pos)                                            \
 do {                                                                         \
-  if (arr.size + (pos) < arr.capacity) {                                     \
-    for (size_t i = arr.size; i > pos; i--) {                                \
-      arr.items[i] = arr.items[i - 1];                                       \
+  if ((arr).size + (pos) < (arr).capacity) {                                     \
+    for (size_t i = (arr).size; i > pos; i--) {                                \
+      (arr).items[i] = (arr).items[i - 1];                                       \
     }                                                                        \
-    arr.items[pos] = elm;                                                    \
+    (arr).items[pos] = elm;                                                    \
   }                                                                          \
 } while (0)
 
