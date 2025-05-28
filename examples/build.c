@@ -34,5 +34,5 @@ int main(int argc, char **argv) {
 
   // jokes aside, actually a prediction.
   build_tool("minecraft2");
-  return 0;
+  return cbone_errcode;
 }

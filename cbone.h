@@ -80,6 +80,10 @@ typedef struct {
   Str_Array data;
 } Cmd;
 
+/*
+** variable to identify if any non-critical errors happened.
+*/
+extern int cbone_errcode;
 int cbone_run_cmd(Cmd arg);
 int cbone_modified_after(char *f1, char *f2);
 Str_Array cbone_make_str_array(char *first, ...);
@@ -125,41 +129,41 @@ first.
 
 #define DA_FREE(arr)                                                           \
   do {                                                                         \
-    if ((arr).size > 0 && (arr).capacity > 0) {                                    \
-      free((arr).items);                                                         \
+    if ((arr).size > 0 && (arr).capacity > 0) {                                \
+      free((arr).items);                                                       \
     }                                                                          \
   } while (0)
 
-#define DA_PUSH(arr, elm)                                                    \
-do {                                                                         \
-  if ((arr).size >= (arr).capacity) {                                            \
+#define DA_PUSH(arr, elm)                                                      \
+do {                                                                           \
+  if ((arr).size >= (arr).capacity) {                                          \
     if ((arr).capacity == 0)                                                   \
       (arr).capacity = DA_DEFAULT_CAP;                                         \
-    else                                                                     \
+    else                                                                       \
       (arr).capacity *= 2;                                                     \
-    (arr).items = realloc((arr).items, (arr).capacity * sizeof(*(arr).items));       \
+    (arr).items = realloc((arr).items, (arr).capacity * sizeof(*(arr).items)); \
     if ((arr).items == NULL) {                                                 \
-      ERROR("DA_PUSH fail: Realloc Error.");                                 \
-      exit(1);                                                               \
-    }                                                                        \
-  }                                                                          \
-  (arr).items[(arr).size++] = (elm);                                             \
+      ERROR("DA_PUSH fail: Realloc Error.");                                   \
+      exit(1);                                                                 \
+    }                                                                          \
+  }                                                                            \
+  (arr).items[(arr).size++] = (elm);                                           \
 } while (0)
 
 #define DA_POP(arr)                                                          \
 do {                                                                         \
-  if ((arr).capacity > 0 && (arr).size > 0) {                                    \
-    (arr).size--;                                                              \
+  if ((arr).capacity > 0 && (arr).size > 0) {                                \
+    (arr).size--;                                                            \
   }                                                                          \
 } while (0)
 
 #define DA_POP_AT(arr, pos)                                                  \
 do {                                                                         \
-  if ((pos) < (arr).size) {                                                    \
-    for (size_t i = (pos); i < (size_t)(arr).size - 1; i++) {                  \
-      (arr).items[i] = (arr).items[i + 1];                                       \
+  if ((pos) < (arr).size) {                                                  \
+    for (size_t i = (pos); i < (size_t)(arr).size - 1; i++) {                \
+      (arr).items[i] = (arr).items[i + 1];                                   \
     }                                                                        \
-    (arr).size--;                                                              \
+    (arr).size--;                                                            \
   }                                                                          \
 } while (0)
 
@@ -167,11 +171,11 @@ do {                                                                         \
 
 #define DA_PUSH_AT(arr, elm, pos)                                            \
 do {                                                                         \
-  if ((arr).size + (pos) < (arr).capacity) {                                     \
-    for (size_t i = (arr).size; i > pos; i--) {                                \
-      (arr).items[i] = (arr).items[i - 1];                                       \
+  if ((arr).size + (pos) < (arr).capacity) {                                 \
+    for (size_t i = (arr).size; i > pos; i--) {                              \
+      (arr).items[i] = (arr).items[i - 1];                                   \
     }                                                                        \
-    (arr).items[pos] = elm;                                                    \
+    (arr).items[pos] = elm;                                                  \
   }                                                                          \
 } while (0)
 
@@ -183,7 +187,7 @@ do {                                                                         \
 #define CMD(...)                                                               \
   do {                                                                         \
     Cmd arg = {.data = cbone_make_str_array(__VA_ARGS__, NULL)};               \
-    cbone_run_cmd(arg);                                                              \
+    cbone_run_cmd(arg);                                                        \
     free(arg.data.items);                                                      \
   } while (0)
 
@@ -286,6 +290,8 @@ char *cbone_concat_str_array(char *sep, Str_Array s) {
   return result;
 }
 
+int cbone_errcode = 0;
+
 int cbone_run_cmd(Cmd arg) {
   char *cmd = cbone_concat_str_array(" ", arg.data);
   cbone_print_cmd(cmd);
@@ -294,13 +300,13 @@ int cbone_run_cmd(Cmd arg) {
 
   if (pid < 0) {
     perror("fork");
-    return 1;
+    cbone_errcode = 1;
   } else if (pid == 0) {
     DA_PUSH(arg.data, NULL);
     execvp(arg.data.items[0], (char *const *)arg.data.items);
 
     perror("execvp");
-    return 1;
+    cbone_errcode = 1;
   } else {
     wait(NULL);
   }
@@ -321,10 +327,11 @@ int cbone_run_cmd(Cmd arg) {
     CloseHandle(pi.hThread);
   } else {
     printf("Error creating process: %ld\n", GetLastError());
+    cbone_failure = 1;
   }
 #endif
   free(cmd);
-  return 0;
+  return cbone_errcode;
 }
 
 fd open_file(char *path) {
@@ -362,14 +369,16 @@ int cbone_modified_after(char *f1, char *f2) {
   fd file2 = open_file(f2);
 
   if (!GetFileTime(file1, NULL, NULL, &file1_time)) {
-    printf("Could not get time of %s: %s", path1, GetLastErrorAsString());
-    exit(1);
+    printf("Couldn't get time of %s: %s", path1, GetLastErrorAsString());
+    cbone_failure = 1;
+    return 0;
   }
   fd_close(file1);
 
   if (!GetFileTime(file2, NULL, NULL, &file2_time)) {
-    printf("Could not get time of %s: %s", path2, GetLastErrorAsString());
-    exit(1);
+    printf("Couldn't get time of %s: %s", path2, GetLastErrorAsString());
+    cbone_failure = 1;
+    return 0;
   }
   fd_close(file2);
 
@@ -378,13 +387,17 @@ int cbone_modified_after(char *f1, char *f2) {
   struct stat flstat_buffer = {0};
 
   if (stat(f1, &flstat_buffer) < 0) {
-    perror("Could get file time");
+    perror("Couldn't get file time");
+    cbone_errcode = 1;
+    return 0;
   }
 
   int f1_time = flstat_buffer.st_mtime;
 
   if (stat(f2, &flstat_buffer) < 0) {
-    perror("Could get file time");
+    perror("Couldn't get file time");
+    cbone_errcode = 1;
+    return 0;
   }
 
   int f2_time = flstat_buffer.st_mtime;
@@ -415,27 +428,27 @@ int cbone_dir_exists(Str_Array Array_path) {
 #ifdef _WIN32
   DWORD attr = GetFileAttributes(path);
   if (attr == INVALID_FILE_ATTRIBUTES) {
-    // don't exists
+    /* don't exists */
     result = 0;
   } else if (attr & FILE_ATTRIBUTE_DIRECTORY) {
-    // is a directory
+    /* is a directory */
     result = 1;
   } else {
-    // is a file
+    /* is a file */
     result = 2;
   }
 #else
   struct stat statbuf;
   if (stat(path, &statbuf) == 0) {
     if (S_ISDIR(statbuf.st_mode)) {
-      // is a directory
+      /* is a directory */
       result = 1;
     } else {
-      // is a file
+      /* is a file */
       result = 2;
     }
   } else {
-    // don't exists
+    /* don't exists */
     result = 0;
   }
 #endif
@@ -443,7 +456,7 @@ int cbone_dir_exists(Str_Array Array_path) {
   return result;
 }
 
-// makes a folder with given path in form of a string.
+/* makes a folder with given path in form of a string. */
 int cbone_mkdir(char *path) {
   int result;
 
@@ -455,9 +468,9 @@ int cbone_mkdir(char *path) {
   return result;
 }
 
-// this function only delete empty directories
-// so if using to delete a folder with files, you should
-// delete all files in that folder
+/* this function only delete empty directories */
+/* so if using to delete a folder with files, you should */
+/* delete all files in that folder */
 int cbone_rmdir(char *path) {
   #ifdef _WIN32
     return RemoveDirectory(path);

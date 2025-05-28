@@ -1,10 +1,11 @@
 # Cbone
 
-Cbone is a one-header library to make build files
+Cbone is a one-header library to make build files.
 
 **Note: this is experimental and anything can change at any moment.**
 
-The main idea of this is that you only need a C compiler to build a project.
+The main idea of this is that you only need a C compiler to build a project and doesn't need to get
+track of the build system's versions.
 
 Take a look into [this](examples/) folder for a more detailed overview.
 
@@ -64,3 +65,7 @@ typedef struct {
 
 Any struct with these 3 fields (items, size and capacity) can be used with these macros and also
 can have more fields.
+
+# Acknowledgements
+
+this library is heavily inspired by [nob.h](https://github.com/tsoding/nob.h) and mostly on its predecessor [nobuild](https://github.com/tsoding/nobuild).
