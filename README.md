@@ -3,69 +3,34 @@
 Cbone is a one-header library to make build files.
 
 **Note: this is experimental and anything can change at any moment.**
+**Cbone is also very unstable and should not be used for large builds.**
 
 The main idea of this is that you only need a C compiler to build a project and doesn't need to get
-track of the build system's versions.
+track of the build system's version.
 
-Take a look into [this](examples/) folder for a more detailed overview.
+Take a look into [this](examples/README.md) for a more detailed overview.
 
-One feature it has is self rebuilding, if the macro ```REBUILD_SELF``` encounters any difference between the executable build file and the source code, it tries to recompile itself.
-
-Here's how to use:
+Here's a simple way to use it:
 
 ```c
 #define CBONE_IMPL
 #include "cbone.h"
 
 int main(int argc, char **argv) {
+  // this macro checks for any difference in the last
+  // time the source file was saved, and if there's a difference,
+  // it tries to recompile itself.
   REBUILD_SELF(argc, argv);
 
+  // CMD creates a process (first parameter) and use the rest as arguments
+  // for the proccess.
+  // for example:
   CMD(cc, "-o", "main", "main.c", "-Wall", "-Wextra", "-pedantic");
-  
-  // rest of the build code
 
-  return 0;
+  return cbone_errcode;
 }
 ```
 
-# Cbone's utilities
-
-## Macros for dynamic arrays (utilities)
-
-**customizable macros**:
-  
-```DA_DEFAULT_CAP```: minimum capacity for arrays (customizable)
-
-```DA_ASSERT```: assertion method used in errors (customizable)
-
-**function macros**:
-
-```DA_FREE```: free a dynamic array.
-
-```DA_PUSH```: push an element to the front of an array
-
-```DA_POP```: remove an element on the front of the array.
-
-```DA_PUSH_AT```: push an element at position (adjust others to fit)
-
-```DA_POP_AT```: remove an element at position (adjust others to fill)
-
-```DA_GET```: gets an element at given position, if the position is greater
-than the size, it will give the last element. Otherwise if it underflows the size, the first.
-
-## Declare dynamic arrays
-
-```c
-typedef struct {
-  void *items; // can be a pointer of any type
-  size_t size; // any integer type, but its better to be a size_t
-  size_t capacity; // also any integer type
-} DynArr;
-```
-
-Any struct with these 3 fields (items, size and capacity) can be used with these macros and also
-can have more fields.
-
 # Acknowledgements
 
-this library is heavily inspired by [nob.h](https://github.com/tsoding/nob.h) and mostly on its predecessor [nobuild](https://github.com/tsoding/nobuild).
+This library is heavily inspired by [nob.h](https://github.com/tsoding/nob.h) and mostly on its predecessor [nobuild](https://github.com/tsoding/nobuild).
