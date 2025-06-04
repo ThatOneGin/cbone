@@ -129,7 +129,7 @@ first.
 
 #define DA_FREE(arr)                                                           \
   do {                                                                         \
-    if ((arr).size > 0 && (arr).capacity > 0) {                                \
+    if ((arr).capacity > 0) {                                                  \
       free((arr).items);                                                       \
     }                                                                          \
   } while (0)
