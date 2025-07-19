@@ -352,7 +352,7 @@ int cbone_run_cmd(cbone_cmd arg) {
   return cbone_errcode;
 }
 
-fd open_file(char *path) {
+fd cbone_fd_open(char *path) {
 #ifndef _WIN32
   fd fl = open(path, O_RDONLY);
 
@@ -372,7 +372,7 @@ fd open_file(char *path) {
   return fl;
 }
 
-void fd_close(fd f) {
+void cbone_fd_close(fd f) {
 #ifdef _WIN32
   CloseHandle(f);
 #else
@@ -383,22 +383,22 @@ void fd_close(fd f) {
 int cbone_modified_after(char *f1, char *f2) {
 #ifdef _WIN32
   FILETIME file1_time, file2_time;
-  fd file1 = open_file(f1);
-  fd file2 = open_file(f2);
+  fd file1 = cbone_fd_open(f1);
+  fd file2 = cbone_fd_open(f2);
 
   if (!GetFileTime(file1, NULL, NULL, &file1_time)) {
     printf("Couldn't get time of %s: %s", path1, GetLastErrorAsString());
     cbone_failure = 1;
     return 0;
   }
-  fd_close(file1);
+  cbone_fd_close(file1);
 
   if (!GetFileTime(file2, NULL, NULL, &file2_time)) {
     printf("Couldn't get time of %s: %s", path2, GetLastErrorAsString());
     cbone_failure = 1;
     return 0;
   }
-  fd_close(file2);
+  cbone_fd_close(file2);
 
   return CompareFileTime(&file1_time, &file2_time) == 1;
 #else
