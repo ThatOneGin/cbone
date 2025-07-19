@@ -6,9 +6,9 @@
 #include "cbone.h"
 
 void setup_dirs(void) {
-  Str_Array path = cbone_make_str_array(".", "build", NULL);
-  Str_Array bin_dir = cbone_make_str_array(".", "build", "bin", NULL);
-  Str_Array src_dir = cbone_make_str_array(".", "src", NULL);
+  cbone_str_array path = cbone_make_str_array(".", "build", NULL);
+  cbone_str_array bin_dir = cbone_make_str_array(".", "build", "bin", NULL);
+  cbone_str_array src_dir = cbone_make_str_array(".", "src", NULL);
   if (cbone_dir_exists(path) == 0) {
     char *bin = cbone_concat_str_array(path_sep, bin_dir);
     cbone_mkdir("build");

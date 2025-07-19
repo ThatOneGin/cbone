@@ -6,8 +6,8 @@
 
 // the non-leaking way to use.
 void raw_build_tool(char *tool) {
-  Str_Array buildsep = cbone_make_str_array("build", "bin", tool, NULL);
-  Str_Array target = cbone_make_str_array(tool, ".cpp", NULL);
+  cbone_str_array buildsep = cbone_make_str_array("build", "bin", tool, NULL);
+  cbone_str_array target = cbone_make_str_array(tool, ".cpp", NULL);
   char *aspath = cbone_concat_str_array(path_sep, buildsep);
   char *targetdotc = cbone_concat_str_array("", target);
   

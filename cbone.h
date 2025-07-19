@@ -74,26 +74,38 @@ typedef struct {
   char **items;
   size_t size;
   size_t capacity;
-} Str_Array;
+} cbone_str_array;
 
 typedef struct {
-  Str_Array data;
-} Cmd;
+  cbone_str_array data;
+} cbone_cmd;
+
+typedef struct {
+  char *items;
+  size_t size;
+  size_t capacity;
+} cbone_string_builder;
 
 /*
 ** variable to identify if any non-critical errors happened.
 */
 extern int cbone_errcode;
-int cbone_run_cmd(Cmd arg);
+int cbone_run_cmd(cbone_cmd arg);
 int cbone_modified_after(char *f1, char *f2);
-Str_Array cbone_make_str_array(char *first, ...);
-char *cbone_concat_str_array(char *delim, Str_Array s);
+cbone_str_array cbone_make_str_array(char *first, ...);
+char *cbone_concat_str_array(char *delim, cbone_str_array s);
 void cbone_print_cmd(char *cmd);
 void cbone_info_cmd(char *msg);
 void cbone_assert_with_errmsg(int expr, char *errmsg);
-int cbone_dir_exists(Str_Array Array_path);
+int cbone_dir_exists(cbone_str_array Array_path);
 int cbone_mkdir(char *path);
 int cbone_rmdir(char *path);
+cbone_string_builder cbone_sb_new(void);
+int cbone_sb_sprintf(cbone_string_builder *sb, const char *f, ...);
+int cbone_sb_char(cbone_string_builder *sb, const char c);
+int cbone_sb_int(cbone_string_builder *sb, int i);
+size_t cbone_sb_free(cbone_string_builder *sb);
+char *cbone_sb_cstr(cbone_string_builder *sb);
 
 /*
 **Dynamic arrays for utilities
@@ -114,6 +126,8 @@ DA_POP_AT: remove an element at position (adjust others to fill)
 DA_GET: gets an element at given position, if the position is greater
 than the size, it will give the last element. Otherwise if it underflows, the
 first.
+
+DA_RESERVE: adjust the size of the dynamic array to expected size.
 */
 
 #ifndef DA_DEFAULT_CAP
@@ -136,17 +150,7 @@ first.
 
 #define DA_PUSH(arr, elm)                                                      \
 do {                                                                           \
-  if ((arr).size >= (arr).capacity) {                                          \
-    if ((arr).capacity == 0)                                                   \
-      (arr).capacity = DA_DEFAULT_CAP;                                         \
-    else                                                                       \
-      (arr).capacity *= 2;                                                     \
-    (arr).items = realloc((arr).items, (arr).capacity * sizeof(*(arr).items)); \
-    if ((arr).items == NULL) {                                                 \
-      ERROR("DA_PUSH fail: Realloc Error.");                                   \
-      exit(1);                                                                 \
-    }                                                                          \
-  }                                                                            \
+  DA_RESERVE(arr, (arr).size + 1);                                             \
   (arr).items[(arr).size++] = (elm);                                           \
 } while (0)
 
@@ -179,6 +183,20 @@ do {                                                                         \
   }                                                                          \
 } while (0)
 
+#define DA_RESERVE(arr, new_cap) do {                                          \
+  if ((arr).capacity < (new_cap)) {                                            \
+    if ((arr).capacity == 0) (arr).capacity = DA_DEFAULT_CAP;                  \
+    while ((arr).capacity < new_cap) {                                         \
+      (arr).capacity *= 2;                                                     \
+    }                                                                          \
+    (arr).items = realloc((arr).items, (arr).capacity * sizeof(*(arr).items)); \
+    if ((arr).items == NULL) {                                                 \
+      ERROR("DA_PUSH fail: Realloc Error.");                                   \
+      exit(1);                                                                 \
+    }                                                                          \
+  }                                                                            \
+} while(0)
+
 /* Implementation section */
 #ifdef CBONE_IMPL
 
@@ -186,7 +204,7 @@ do {                                                                         \
 #define CONCAT(...) cbone_concat_str_array("", cbone_make_str_array(__VA_ARGS__, NULL))
 #define CMD(...)                                                               \
   do {                                                                         \
-    Cmd arg = {.data = cbone_make_str_array(__VA_ARGS__, NULL)};               \
+    cbone_cmd arg = {.data = cbone_make_str_array(__VA_ARGS__, NULL)};               \
     cbone_run_cmd(arg);                                                        \
     free(arg.data.items);                                                      \
   } while (0)
@@ -212,8 +230,8 @@ void cbone_info_cmd(char *msg) { printf("[INFO]: %s\n", msg); }
 
 void cbone_print_cmd(char *cmd) { printf("[CMD]: %s\n", cmd); }
 
-Str_Array cbone_make_str_array(char *first, ...) {
-  Str_Array result = {0};
+cbone_str_array cbone_make_str_array(char *first, ...) {
+  cbone_str_array result = {0};
 
   if (first == NULL) {
     return result;
@@ -247,8 +265,8 @@ Str_Array cbone_make_str_array(char *first, ...) {
   return result;
 }
 
-Str_Array str_array_push(Str_Array s_arr, char *str) {
-  Str_Array result = {.size = s_arr.size + 1};
+cbone_str_array str_array_push(cbone_str_array s_arr, char *str) {
+  cbone_str_array result = {.size = s_arr.size + 1};
 
   result.items = malloc(result.size);
   cbone_assert_with_errmsg(result.items != NULL,
@@ -261,7 +279,7 @@ Str_Array str_array_push(Str_Array s_arr, char *str) {
   return result;
 }
 
-char *cbone_concat_str_array(char *sep, Str_Array s) {
+char *cbone_concat_str_array(char *sep, cbone_str_array s) {
   if (s.size == 0) {
     return "";
   }
@@ -292,7 +310,7 @@ char *cbone_concat_str_array(char *sep, Str_Array s) {
 
 int cbone_errcode = 0;
 
-int cbone_run_cmd(Cmd arg) {
+int cbone_run_cmd(cbone_cmd arg) {
   char *cmd = cbone_concat_str_array(" ", arg.data);
   cbone_print_cmd(cmd);
 #ifndef _WIN32
@@ -422,7 +440,7 @@ Return values:
   0: don't exists.
   1: exists.
   2: not a directory, but exists.*/
-int cbone_dir_exists(Str_Array Array_path) {
+int cbone_dir_exists(cbone_str_array Array_path) {
   char *path = cbone_concat_str_array(path_sep, Array_path);
   int result;
 #ifdef _WIN32
@@ -477,6 +495,46 @@ int cbone_rmdir(char *path) {
   #else
     return rmdir(path) == 0;
   #endif
+}
+
+cbone_string_builder cbone_sb_new(void) {
+  cbone_string_builder sb;
+  sb.items = NULL;
+  sb.size = 0;
+  sb.capacity = 0;
+  return sb;
+}
+
+int cbone_sb_sprintf(cbone_string_builder *sb, const char *f, ...) {
+  va_list ap;
+  /* get how much chars we need to reserve */
+  va_start(ap, f);
+  int n = vsnprintf(NULL, 0, f, ap);
+  va_end(ap);
+  DA_RESERVE(*sb, sb->size + n + 1);
+  va_start(ap, f);
+  n = vsnprintf(sb->items + sb->size, n+1, f, ap);
+  va_end(ap);
+  sb->size += n;
+  return n;
+}
+
+int cbone_sb_char(cbone_string_builder *sb, const char c) {
+  return cbone_sb_sprintf(sb, "%c", c);
+}
+
+int cbone_sb_int(cbone_string_builder *sb, int i) {
+  return cbone_sb_sprintf(sb, "%d", i);
+}
+
+size_t cbone_sb_free(cbone_string_builder *sb) {
+  size_t nbytes = sb->size;
+  DA_FREE(*sb);
+  return nbytes;
+}
+
+char *cbone_sb_cstr(cbone_string_builder *sb) {
+  return sb->items;
 }
 
 #endif // CBONE_IMPL
