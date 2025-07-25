@@ -24,7 +24,7 @@ SOFTWARE.
 
 #ifndef CBONE_H
 #define CBONE_H
-#ifndef _WIN32
+#ifdef __linux__
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -32,7 +32,7 @@ SOFTWARE.
 #include <unistd.h>
 typedef int fd;
 #define path_sep "/"
-#else
+#elif defined(_WIN32)
 #include <process.h>
 #include <direct.h>
 #include <windows.h>
@@ -59,9 +59,7 @@ typedef HANDLE fd;
 #endif
 
 #ifndef cc
-  #ifndef cc
-    #define cc "cc"
-  #endif
+  #define cc "cc"
 #endif
 
 #include <assert.h>
@@ -138,7 +136,7 @@ DA_RESERVE: adjust the size of the dynamic array to expected size.
 #define DA_ASSERT assert
 #endif
 
-#define LOG(pref, str) (fprintf(stdout, pref str))
+#define LOG(pref, str) (fprintf(stdout, pref " "), fprintf(stdout, str))
 #define CBONE_ERRLOG(msg) LOG("Error:", msg)
 
 #define DA_FREE(arr)                                                           \
@@ -209,7 +207,7 @@ do {                                                                         \
     free(arg.data.items);                                                      \
   } while (0)
 
-char *str_concat(char *s1, char *s2) {
+char *cbone_str_concat(char *s1, char *s2) {
   char *buffer = malloc(strlen(s1) + strlen(s2) + 1);
   cbone_assert_with_errmsg(buffer != NULL, "Couldn't concat string.");
 
@@ -313,7 +311,7 @@ int cbone_errcode = 0;
 int cbone_run_cmd(cbone_cmd arg) {
   char *cmd = cbone_concat_str_array(" ", arg.data);
   cbone_print_cmd(cmd);
-#ifndef _WIN32
+#if defined(__linux) || defined(__linux__)
   pid_t pid = fork();
 
   if (pid < 0) {
@@ -328,7 +326,7 @@ int cbone_run_cmd(cbone_cmd arg) {
   } else {
     wait(NULL);
   }
-#else
+#elif defined(_WIN32)
   STARTUPINFO si;
   PROCESS_INFORMATION pi;
   ZeroMemory(&si, sizeof(si));
@@ -352,14 +350,14 @@ int cbone_run_cmd(cbone_cmd arg) {
 }
 
 fd cbone_fd_open(char *path) {
-#ifndef _WIN32
+#if defined(__linux) || defined(__linux__)
   fd fl = open(path, O_RDONLY);
 
   if (fl < 0) {
     perror("Couldn't open file");
     exit(1);
   }
-#else
+#elif defined(_WIN32)
   fd fl = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
                      FILE_ATTRIBUTE_NORMAL, NULL);
 
@@ -374,7 +372,7 @@ fd cbone_fd_open(char *path) {
 void cbone_fd_close(fd f) {
 #ifdef _WIN32
   CloseHandle(f);
-#else
+#elif defined(__linux) || defined(__linux__)
   close(f);
 #endif
 }
@@ -400,7 +398,7 @@ int cbone_modified_after(char *f1, char *f2) {
   cbone_fd_close(file2);
 
   return CompareFileTime(&file1_time, &file2_time) == 1;
-#else
+#elif defined(__linux) || defined(__linux__)
   struct stat flstat_buffer = {0};
 
   if (stat(f1, &flstat_buffer) < 0) {
@@ -436,7 +434,7 @@ do {                                                                         \
 /*
 Returns if given path as an array of strings is a directory.
 Return values:
-  0: don't exists.
+  0: doesn't exists.
   1: exists.
   2: not a directory, but exists.*/
 int cbone_dir_exists(cbone_str_array Array_path) {
@@ -445,7 +443,7 @@ int cbone_dir_exists(cbone_str_array Array_path) {
 #ifdef _WIN32
   DWORD attr = GetFileAttributes(path);
   if (attr == INVALID_FILE_ATTRIBUTES) {
-    /* don't exists */
+    /* doesn't exists */
     result = 0;
   } else if (attr & FILE_ATTRIBUTE_DIRECTORY) {
     /* is a directory */
@@ -454,7 +452,7 @@ int cbone_dir_exists(cbone_str_array Array_path) {
     /* is a file */
     result = 2;
   }
-#else
+#elif defined(__linux) || defined(__linux__)
   struct stat statbuf;
   if (stat(path, &statbuf) == 0) {
     if (S_ISDIR(statbuf.st_mode)) {
@@ -465,7 +463,7 @@ int cbone_dir_exists(cbone_str_array Array_path) {
       result = 2;
     }
   } else {
-    /* don't exists */
+    /* doesn't exists */
     result = 0;
   }
 #endif
@@ -479,7 +477,7 @@ int cbone_mkdir(char *path) {
 
 #ifdef _WIN32
   result = _mkdir(path);
-#else
+#elif defined(__linux) || defined(__linux__)
   result = mkdir(path, 0755);
 #endif
   return result;
@@ -491,7 +489,7 @@ int cbone_mkdir(char *path) {
 int cbone_rmdir(char *path) {
   #ifdef _WIN32
     return RemoveDirectory(path);
-  #else
+  #elif defined(__linux) || defined(__linux__)
     return rmdir(path) == 0;
   #endif
 }
