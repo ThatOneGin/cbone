@@ -139,7 +139,7 @@ DA_RESERVE: adjust the size of the dynamic array to expected size.
 #endif
 
 #define LOG(pref, str) (fprintf(stdout, pref str))
-#define ERROR(msg) LOG("Error:", msg)
+#define CBONE_ERRLOG(msg) LOG("Error:", msg)
 
 #define DA_FREE(arr)                                                           \
   do {                                                                         \
@@ -191,7 +191,7 @@ do {                                                                         \
     }                                                                          \
     (arr).items = realloc((arr).items, (arr).capacity * sizeof(*(arr).items)); \
     if ((arr).items == NULL) {                                                 \
-      ERROR("DA_PUSH fail: Realloc Error.");                                   \
+      CBONE_ERRLOG("DA_PUSH fail: Realloc Error.");                                   \
       exit(1);                                                                 \
     }                                                                          \
   }                                                                            \
@@ -221,7 +221,7 @@ char *str_concat(char *s1, char *s2) {
 
 void cbone_assert_with_errmsg(int expr, char *errmsg) {
   if (!expr) {
-    printf("[ERROR]: %s\n", errmsg);
+    printf("[CBONE_ERRLOG]: %s\n", errmsg);
     exit(1);
   }
 }
@@ -331,21 +331,20 @@ int cbone_run_cmd(cbone_cmd arg) {
 #else
   STARTUPINFO si;
   PROCESS_INFORMATION pi;
-
   ZeroMemory(&si, sizeof(si));
   ZeroMemory(&pi, sizeof(pi));
-
+  
+  si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+  si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+  si.dwFlags |= STARTF_USESTDHANDLES;
   si.cb = sizeof(si);
 
-  if (CreateProcess(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-
+  if (CreateProcess(NULL, cmd, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
     WaitForSingleObject(pi.hProcess, INFINITE);
-
-    CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
   } else {
     printf("Error creating process: %ld\n", GetLastError());
-    cbone_failure = 1;
+    cbone_errcode = 1;
   }
 #endif
   free(cmd);
@@ -365,7 +364,7 @@ fd cbone_fd_open(char *path) {
                      FILE_ATTRIBUTE_NORMAL, NULL);
 
   if (fl == INVALID_HANDLE_VALUE) {
-    printf("Couldn't open %s: %s", path, GetLastErrorAsString());
+    printf("Couldn't open %s (%ld)", path, GetLastError());
     exit(1);
   }
 #endif
@@ -387,15 +386,15 @@ int cbone_modified_after(char *f1, char *f2) {
   fd file2 = cbone_fd_open(f2);
 
   if (!GetFileTime(file1, NULL, NULL, &file1_time)) {
-    printf("Couldn't get time of %s: %s", path1, GetLastErrorAsString());
-    cbone_failure = 1;
+    printf("Couldn't get time of %s (%ld)", f1, GetLastError());
+    cbone_errcode = 1;
     return 0;
   }
   cbone_fd_close(file1);
 
   if (!GetFileTime(file2, NULL, NULL, &file2_time)) {
-    printf("Couldn't get time of %s: %s", path2, GetLastErrorAsString());
-    cbone_failure = 1;
+    printf("Couldn't get time of %s (%ld)", f2, GetLastError());
+    cbone_errcode = 1;
     return 0;
   }
   cbone_fd_close(file2);
