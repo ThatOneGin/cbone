@@ -40,29 +40,16 @@ typedef HANDLE fd;
 #define path_sep "\\"
 #endif
 
-#ifdef __GNUC__
-  #ifndef cc
-    #define cc "gcc"
-  #endif
-#endif
-
 #ifdef __clang__
-  #ifndef cc
-    #define cc "clang"
-  #endif
-#endif
-
-#ifdef __MSC_VER
-  #ifndef cc
-    #define cc "cl.exe"
-  #endif
-#endif
-
-#ifndef cc
+  #define cc "clang"
+#elif defined(__GNUC__)
+  #define cc "gcc"
+#elif defined(__MSC_VER)
+  #define cc "cl.exe"
+#else
   #define cc "cc"
 #endif
 
-#include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -92,8 +79,6 @@ int cbone_run_cmd(cbone_cmd arg);
 int cbone_modified_after(char *f1, char *f2);
 cbone_str_array cbone_make_str_array(char *first, ...);
 char *cbone_concat_str_array(char *delim, cbone_str_array s);
-void cbone_print_cmd(char *cmd);
-void cbone_info_cmd(char *msg);
 void cbone_assert_with_errmsg(int expr, char *errmsg);
 int cbone_dir_exists(cbone_str_array Array_path);
 int cbone_mkdir(char *path);
@@ -133,10 +118,11 @@ DA_RESERVE: adjust the size of the dynamic array to expected size.
 #endif
 
 #ifndef DA_ASSERT
+#include <assert.h>
 #define DA_ASSERT assert
 #endif
 
-#define LOG(pref, str) (fprintf(stdout, pref " "), fprintf(stdout, str))
+#define LOG(pref, str) (fprintf(stdout, pref " "), fprintf(stdout, "%s\n", str))
 #define CBONE_ERRLOG(msg) LOG("Error:", msg)
 
 #define DA_FREE(arr)                                                           \
@@ -147,53 +133,54 @@ DA_RESERVE: adjust the size of the dynamic array to expected size.
   } while (0)
 
 #define DA_PUSH(arr, elm)                                                      \
-do {                                                                           \
-  DA_RESERVE(arr, (arr).size + 1);                                             \
-  (arr).items[(arr).size++] = (elm);                                           \
-} while (0)
+  do {                                                                         \
+    DA_RESERVE(arr, (arr).size + 1);                                           \
+    (arr).items[(arr).size++] = (elm);                                         \
+  } while (0)
 
 #define DA_POP(arr)                                                          \
-do {                                                                         \
-  if ((arr).capacity > 0 && (arr).size > 0) {                                \
-    (arr).size--;                                                            \
-  }                                                                          \
-} while (0)
-
-#define DA_POP_AT(arr, pos)                                                  \
-do {                                                                         \
-  if ((pos) < (arr).size) {                                                  \
-    for (size_t i = (pos); i < (size_t)(arr).size - 1; i++) {                \
-      (arr).items[i] = (arr).items[i + 1];                                   \
+  do {                                                                       \
+    if ((arr).capacity > 0 && (arr).size > 0) {                              \
+      (arr).size--;                                                          \
     }                                                                        \
-    (arr).size--;                                                            \
-  }                                                                          \
-} while (0)
+  } while (0)
+
+#define DA_POP_AT(arr, pos)                                                    \
+  do {                                                                         \
+    if ((pos) < (arr).size) {                                                  \
+      for (size_t i = (pos); i < (size_t)(arr).size - 1; i++) {                \
+        (arr).items[i] = (arr).items[i + 1];                                   \
+      }                                                                        \
+      (arr).size--;                                                            \
+    }                                                                          \
+  } while (0)
 
 #define DA_GET(arr, pos) ((pos) >= 0 ? (arr).size > (pos) ? (arr).items[(pos)] : (arr).items[(arr).size - 1] : (arr).items[0])
 
-#define DA_PUSH_AT(arr, elm, pos)                                            \
-do {                                                                         \
-  if ((arr).size + (pos) < (arr).capacity) {                                 \
-    for (size_t i = (arr).size; i > pos; i--) {                              \
-      (arr).items[i] = (arr).items[i - 1];                                   \
-    }                                                                        \
-    (arr).items[pos] = elm;                                                  \
-  }                                                                          \
-} while (0)
+#define DA_PUSH_AT(arr, elm, pos)                                              \
+  do {                                                                         \
+    if ((arr).size + (pos) < (arr).capacity) {                                 \
+      for (size_t i = (arr).size; i > pos; i--) {                              \
+        (arr).items[i] = (arr).items[i - 1];                                   \
+      }                                                                        \
+      (arr).items[pos] = elm;                                                  \
+    }                                                                          \
+  } while (0)
 
-#define DA_RESERVE(arr, new_cap) do {                                          \
-  if ((arr).capacity < (new_cap)) {                                            \
-    if ((arr).capacity == 0) (arr).capacity = DA_DEFAULT_CAP;                  \
-    while ((arr).capacity < new_cap) {                                         \
-      (arr).capacity *= 2;                                                     \
-    }                                                                          \
-    (arr).items = realloc((arr).items, (arr).capacity * sizeof(*(arr).items)); \
-    if ((arr).items == NULL) {                                                 \
-      CBONE_ERRLOG("DA_PUSH fail: Realloc Error.");                                   \
-      exit(1);                                                                 \
-    }                                                                          \
-  }                                                                            \
-} while(0)
+#define DA_RESERVE(arr, new_cap)                                                 \
+  do {                                                                           \
+    if ((arr).capacity < (new_cap)) {                                            \
+      if ((arr).capacity == 0) (arr).capacity = DA_DEFAULT_CAP;                  \
+      while ((arr).capacity < new_cap) {                                         \
+        (arr).capacity *= 2;                                                     \
+      }                                                                          \
+      (arr).items = realloc((arr).items, (arr).capacity * sizeof(*(arr).items)); \
+      if ((arr).items == NULL) {                                                 \
+        CBONE_ERRLOG("DA_RESERVE fail: Realloc Error.");                         \
+        exit(1);                                                                 \
+      }                                                                          \
+    }                                                                            \
+  } while(0)
 
 /* Implementation section */
 #ifdef CBONE_IMPL
@@ -202,7 +189,7 @@ do {                                                                         \
 #define CONCAT(...) cbone_concat_str_array("", cbone_make_str_array(__VA_ARGS__, NULL))
 #define CMD(...)                                                               \
   do {                                                                         \
-    cbone_cmd arg = {.data = cbone_make_str_array(__VA_ARGS__, NULL)};               \
+    cbone_cmd arg = {.data = cbone_make_str_array(__VA_ARGS__, NULL)};         \
     cbone_run_cmd(arg);                                                        \
     free(arg.data.items);                                                      \
   } while (0)
@@ -219,14 +206,10 @@ char *cbone_str_concat(char *s1, char *s2) {
 
 void cbone_assert_with_errmsg(int expr, char *errmsg) {
   if (!expr) {
-    printf("[CBONE_ERRLOG]: %s\n", errmsg);
+    CBONE_ERRLOG(errmsg);
     exit(1);
   }
 }
-
-void cbone_info_cmd(char *msg) { printf("[INFO]: %s\n", msg); }
-
-void cbone_print_cmd(char *cmd) { printf("[CMD]: %s\n", cmd); }
 
 cbone_str_array cbone_make_str_array(char *first, ...) {
   cbone_str_array result = {0};
@@ -310,7 +293,7 @@ int cbone_errcode = 0;
 
 int cbone_run_cmd(cbone_cmd arg) {
   char *cmd = cbone_concat_str_array(" ", arg.data);
-  cbone_print_cmd(cmd);
+  LOG("CMD", cmd);
 #if defined(__linux) || defined(__linux__)
   pid_t pid = fork();
 
