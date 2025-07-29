@@ -1,12 +1,13 @@
 # Examples
 
 this folder show some examples on how to use the library's functions
-in both leaky and the responsible ways (faster way, but leak memory and don't leak/violate any memory respectively).
+in both ways: the one that leaks some memory and the one that try to free all respective mallocs
 
 ## files
 
   - [build.c](./build.c) - Shows very basic functions and macros (overview).
-  - [dir.c](dir.c) - Shows functions to manipulate directories.
+  - [dir.c](./dir.c) - Shows functions to manipulate directories.
+  - [sb.c](./sb.c) - String builders example
 
 # How to use
 
@@ -16,7 +17,7 @@ in both leaky and the responsible ways (faster way, but leak memory and don't le
 
 - ```DA_DEFAULT_CAP```: minimum capacity for arrays
 
-- ```DA_ASSERT```: assertion method used in errors
+- ```DA_ASSERT```: assertion function used in errors
 
 **function macros**
 
