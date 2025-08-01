@@ -246,20 +246,6 @@ cbone_str_array cbone_make_str_array(char *first, ...) {
   return result;
 }
 
-cbone_str_array str_array_push(cbone_str_array s_arr, char *str) {
-  cbone_str_array result = {.size = s_arr.size + 1};
-
-  result.items = malloc(result.size);
-  cbone_assert_with_errmsg(result.items != NULL,
-                     "Coudln't push string to string array.");
-
-  memcpy(result.items, s_arr.items, s_arr.size);
-
-  result.items[s_arr.size] = str;
-
-  return result;
-}
-
 char *cbone_concat_str_array(char *sep, cbone_str_array s) {
   if (s.size == 0) {
     return "";
