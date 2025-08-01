@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
 
 # When to not use Cbone
 
-- When you already use a build system like [Cmake][https://cmake.org/] or [GNU Make](https://www.gnu.org/software/make/), it doesn't make any sense to use Cbone.
+- When you already use a build system like [Cmake](https://cmake.org/) or [GNU Make](https://www.gnu.org/software/make/), it doesn't make any sense to use Cbone.
 - When your project is too big, Cbone is meant to be used in tiny projects.
 
 # Pros and cons
