@@ -30,13 +30,13 @@ SOFTWARE.
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-typedef int fd;
+typedef int cbone_fd;
 #define path_sep "/"
 #elif defined(_WIN32)
 #include <process.h>
 #include <direct.h>
 #include <windows.h>
-typedef HANDLE fd;
+typedef HANDLE cbone_fd;
 #define path_sep "\\"
 #endif
 
@@ -84,8 +84,8 @@ cbone_str_array cbone_make_str_array(char *first, ...);
 char *cbone_concat_str_array(char *delim, cbone_str_array s);
 void cbone_assert_with_errmsg(int expr, char *errmsg);
 int cbone_dir_exists(cbone_str_array Array_path);
-int cbone_mkdir(char *path);
-int cbone_rmdir(char *path);
+int cbone_dir_mkdir(char *path);
+int cbone_dir_rmdir(char *path);
 cbone_string_builder cbone_sb_new(void);
 int cbone_sb_sprintf(cbone_string_builder *sb, const char *f, ...);
 int cbone_sb_char(cbone_string_builder *sb, const char c);
@@ -335,16 +335,16 @@ int cbone_cmd_run_free(cbone_cmd *cmd) {
   return status;
 }
 
-fd cbone_fd_open(char *path) {
+cbone_fd cbone_fd_open(char *path) {
 #if defined(__linux) || defined(__linux__)
-  fd fl = open(path, O_RDONLY);
+  cbone_fd fl = open(path, O_RDONLY);
 
   if (fl < 0) {
     perror("Couldn't open file");
     exit(1);
   }
 #elif defined(_WIN32)
-  fd fl = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+  cbone_fd fl = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
                      FILE_ATTRIBUTE_NORMAL, NULL);
 
   if (fl == INVALID_HANDLE_VALUE) {
@@ -355,7 +355,7 @@ fd cbone_fd_open(char *path) {
   return fl;
 }
 
-void cbone_fd_close(fd f) {
+void cbone_fd_close(cbone_fd f) {
 #ifdef _WIN32
   CloseHandle(f);
 #elif defined(__linux) || defined(__linux__)
@@ -366,8 +366,8 @@ void cbone_fd_close(fd f) {
 int cbone_modified_after(char *f1, char *f2) {
 #ifdef _WIN32
   FILETIME file1_time, file2_time;
-  fd file1 = cbone_fd_open(f1);
-  fd file2 = cbone_fd_open(f2);
+  cbone_fd file1 = cbone_fd_open(f1);
+  cbone_fd file2 = cbone_fd_open(f2);
 
   if (!GetFileTime(file1, NULL, NULL, &file1_time)) {
     cbone_log("Couldn't get time of %s (%ld)", f1, GetLastError());
@@ -458,7 +458,7 @@ int cbone_dir_exists(cbone_str_array Array_path) {
 }
 
 /* makes a folder with given path in form of a string. */
-int cbone_mkdir(char *path) {
+int cbone_dir_mkdir(char *path) {
   int result;
 
 #ifdef _WIN32
@@ -472,7 +472,7 @@ int cbone_mkdir(char *path) {
 /* this function only delete empty directories */
 /* so if using to delete a folder with files, you should */
 /* delete all files in that folder */
-int cbone_rmdir(char *path) {
+int cbone_dir_rmdir(char *path) {
   #ifdef _WIN32
     return RemoveDirectory(path);
   #elif defined(__linux) || defined(__linux__)
@@ -529,6 +529,38 @@ void cbone_log(const char *pref, const char *f, ...) {
   fprintf(stdout, "\n");
   va_end(ap);
 }
-
 #endif // CBONE_IMPL
 #endif // CBONE_H
+
+/*
+** got this idea from nob.h library
+** ref: https://github.com/tsoding/nob.h
+*/
+#ifndef CBONE_STRIP_GUARD
+#define CBONE_STRIP_GUARD
+  #ifdef CBONE_STRIP_PREFIX
+    #define fd cbone_fd
+    #define str_array cbone_str_array
+    #define cmd cbone_cmd
+    #define string_builder cbone_string_builder
+    #define cmd_append cbone_cmd_append
+    #define cmd_free cbone_cmd_free
+    #define cmd_run cbone_cmd_run
+    #define cmd_run_free cbone_cmd_run_free
+    #define modified_after cbone_modified_after
+    #define make_str_array cbone_make_str_array
+    #define concat_str_array cbone_concat_str_array
+    #define assert_with_errmsg cbone_assert_with_errmsg
+    #define dir_exists cbone_dir_exists
+    #define dir_mkdir cbone_dir_mkdir
+    #define dir_rmdir cbone_dir_rmdir
+    #define sb_new cbone_sb_new
+    #define sb_sprintf cbone_sb_sprintf
+    #define sb_char cbone_sb_char
+    #define sb_int cbone_sb_int
+    #define sb_free cbone_sb_free
+    #define sb_cstr cbone_sb_cstr
+    // already defined in math.h
+    // #define log cbone_log
+  #endif // CBONE_STRIP_PREFIX
+#endif // CBONE_STRIP_GUARD
