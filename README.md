@@ -2,17 +2,27 @@
 
 Cbone is a one-header library to make build files.
 
-**Note: this is experimental and anything can change at any moment.**
-**Cbone is also very unstable and should not be used for large builds.**
+> **_NOTE_:** this is an experimental library and anything can change at any moment. Cbone is also very unstable and should not be used for large builds.
 
-The main idea of this is that you only need a C compiler to build a project and doesn't need to get
+The main idea of this is that you only need a C compiler to build a project and you don't need to get
 track of the build system's version.
 
-Take a look into [this](examples/README.md) for a more detailed overview.
+### Table of contents
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [When to not use Cbone](#when-to-not-use-cbone)
+  - [Pros and cons](#pros-and-cons)
+    - [Pros](#pros)
+    - [Cons](#cons)
+  - [Acknowledgements](#acknowledgements)
 
 # Installation
 
-You can just copy-and-paste `cbone.h` into your project.
+- Copy [cbone.h](./cbone.h) into your project.
+- Create `cbone.c` file with your recipe.
+- compile `cbone.c` into `cbone` executable.
+  - `cc -o cbone cbone.c` (swap cc with the C compiler of your preference)
+- run the executable using `./cbone`
 
 # Usage
 
@@ -40,6 +50,8 @@ int main(int argc, char **argv) {
 }
 ```
 
+You can take a look into [this](examples/README.md) for a more detailed examples.
+
 # When to not use Cbone
 
 - When you already use a build system like [Cmake](https://cmake.org/) or [GNU Make](https://www.gnu.org/software/make/), it doesn't make any sense to use Cbone.
@@ -61,4 +73,4 @@ int main(int argc, char **argv) {
 
 # Acknowledgements
 
-This library is heavily inspired by [nob.h](https://github.com/tsoding/nob.h) and mostly on its predecessor [nobuild](https://github.com/tsoding/nobuild).
+This library is heavily inspired by [nob.h](https://github.com/tsoding/nob.h) (available under MIT or Public Domain license) and mostly on its predecessor [nobuild](https://github.com/tsoding/nobuild) (licensed under MIT license).
