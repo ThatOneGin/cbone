@@ -75,7 +75,10 @@ typedef struct {
 ** variable to identify if any non-critical errors happened.
 */
 extern int cbone_errcode;
-int cbone_run_cmd(cbone_cmd arg);
+int cbone_cmd_append(cbone_cmd *cmd, char *s);
+void cbone_cmd_free(cbone_cmd *cmd);
+int cbone_cmd_run(cbone_cmd *cmd);
+int cbone_cmd_run_free(cbone_cmd *cmd);
 int cbone_modified_after(char *f1, char *f2);
 cbone_str_array cbone_make_str_array(char *first, ...);
 char *cbone_concat_str_array(char *delim, cbone_str_array s);
@@ -89,7 +92,7 @@ int cbone_sb_char(cbone_string_builder *sb, const char c);
 int cbone_sb_int(cbone_string_builder *sb, int i);
 size_t cbone_sb_free(cbone_string_builder *sb);
 char *cbone_sb_cstr(cbone_string_builder *sb);
-
+void cbone_log(const char *pref, const char *f, ...);
 /*
 **Dynamic arrays for utilities
 
@@ -122,8 +125,7 @@ DA_RESERVE: adjust the size of the dynamic array to expected size.
 #define DA_ASSERT assert
 #endif
 
-#define LOG(pref, str) (fprintf(stdout, pref " "), fprintf(stdout, "%s\n", str))
-#define CBONE_ERRLOG(msg) LOG("Error:", msg)
+#define CBONE_ERRLOG(msg) cbone_log("ERROR", msg)
 
 #define DA_FREE(arr)                                                           \
   do {                                                                         \
@@ -189,9 +191,9 @@ DA_RESERVE: adjust the size of the dynamic array to expected size.
 #define CONCAT(...) cbone_concat_str_array("", cbone_make_str_array(__VA_ARGS__, NULL))
 #define CMD(...)                                                               \
   do {                                                                         \
-    cbone_cmd arg = {.data = cbone_make_str_array(__VA_ARGS__, NULL)};         \
-    cbone_run_cmd(arg);                                                        \
-    free(arg.data.items);                                                      \
+    cbone_cmd cmd = {.data = cbone_make_str_array(__VA_ARGS__, NULL)};         \
+    cbone_cmd_run(&cmd);                                                       \
+    cbone_cmd_free(&cmd);                                                      \
   } while (0)
 
 char *cbone_str_concat(char *s1, char *s2) {
@@ -277,9 +279,18 @@ char *cbone_concat_str_array(char *sep, cbone_str_array s) {
 
 int cbone_errcode = 0;
 
-int cbone_run_cmd(cbone_cmd arg) {
-  char *cmd = cbone_concat_str_array(" ", arg.data);
-  LOG("CMD", cmd);
+int cbone_cmd_append(cbone_cmd *cmd, char *s) {
+  DA_PUSH(cmd->data, s);
+  return cmd->data.size-1;
+}
+
+void cbone_cmd_free(cbone_cmd *cmd) {
+  DA_FREE(cmd->data);
+}
+
+int cbone_cmd_run(cbone_cmd *cmd) {
+  char *str_cmd = cbone_concat_str_array(" ", cmd->data);
+  cbone_log("CMD", str_cmd);
 #if defined(__linux) || defined(__linux__)
   pid_t pid = fork();
 
@@ -287,8 +298,8 @@ int cbone_run_cmd(cbone_cmd arg) {
     perror("fork");
     cbone_errcode = 1;
   } else if (pid == 0) {
-    DA_PUSH(arg.data, NULL);
-    execvp(arg.data.items[0], (char *const *)arg.data.items);
+    DA_PUSH(cmd->data, NULL);
+    execvp(cmd->data.items[0], (char *const *)cmd->data.items);
 
     perror("execvp");
     cbone_errcode = 1;
@@ -306,16 +317,22 @@ int cbone_run_cmd(cbone_cmd arg) {
   si.dwFlags |= STARTF_USESTDHANDLES;
   si.cb = sizeof(si);
 
-  if (CreateProcess(NULL, cmd, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
+  if (CreateProcess(NULL, str_cmd, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
     WaitForSingleObject(pi.hProcess, INFINITE);
     CloseHandle(pi.hThread);
   } else {
-    printf("Error creating process: %ld\n", GetLastError());
+    cbone_log("Error creating process: %ld\n", GetLastError());
     cbone_errcode = 1;
   }
 #endif
-  free(cmd);
+  free(str_cmd);
   return cbone_errcode;
+}
+
+int cbone_cmd_run_free(cbone_cmd *cmd) {
+  int status = cbone_cmd_run(cmd);
+  cbone_cmd_free(cmd);
+  return status;
 }
 
 fd cbone_fd_open(char *path) {
@@ -331,7 +348,7 @@ fd cbone_fd_open(char *path) {
                      FILE_ATTRIBUTE_NORMAL, NULL);
 
   if (fl == INVALID_HANDLE_VALUE) {
-    printf("Couldn't open %s (%ld)", path, GetLastError());
+    cbone_log(NULL, "Couldn't open %s (%ld)", path, GetLastError());
     exit(1);
   }
 #endif
@@ -353,14 +370,14 @@ int cbone_modified_after(char *f1, char *f2) {
   fd file2 = cbone_fd_open(f2);
 
   if (!GetFileTime(file1, NULL, NULL, &file1_time)) {
-    printf("Couldn't get time of %s (%ld)", f1, GetLastError());
+    cbone_log("Couldn't get time of %s (%ld)", f1, GetLastError());
     cbone_errcode = 1;
     return 0;
   }
   cbone_fd_close(file1);
 
   if (!GetFileTime(file2, NULL, NULL, &file2_time)) {
-    printf("Couldn't get time of %s (%ld)", f2, GetLastError());
+    cbone_log("Couldn't get time of %s (%ld)", f2, GetLastError());
     cbone_errcode = 1;
     return 0;
   }
@@ -501,6 +518,16 @@ size_t cbone_sb_free(cbone_string_builder *sb) {
 
 char *cbone_sb_cstr(cbone_string_builder *sb) {
   return sb->items;
+}
+
+void cbone_log(const char *pref, const char *f, ...) {
+  if (pref == NULL) pref = "LOG";
+  va_list ap;
+  va_start(ap, f);
+  fprintf(stdout, "[%s] ", pref);
+  vfprintf(stdout, f, ap);
+  fprintf(stdout, "\n");
+  va_end(ap);
 }
 
 #endif // CBONE_IMPL
