@@ -196,6 +196,8 @@ DA_RESERVE: adjust the size of the dynamic array to expected size.
     cbone_cmd_free(&cmd);                                                      \
   } while (0)
 
+int cbone_errcode = 0;
+
 char *cbone_str_concat(char *s1, char *s2) {
   char *buffer = malloc(strlen(s1) + strlen(s2) + 1);
   cbone_assert_with_errmsg(buffer != NULL, "Couldn't concat string.");
@@ -215,69 +217,35 @@ void cbone_assert_with_errmsg(int expr, char *errmsg) {
 
 cbone_str_array cbone_make_str_array(char *first, ...) {
   cbone_str_array result = {0};
-
   if (first == NULL) {
     return result;
   }
-
-  result.size += 1;
-
-  va_list args;
-  va_start(args, first);
-  for (char *next = va_arg(args, char *); next != NULL;
-       next = va_arg(args, char *)) {
-    result.size += 1;
+  DA_PUSH(result, first);
+  va_list ap;
+  va_start(ap, first);
+  for (char *next = va_arg(ap, char *); next != NULL;
+       next = va_arg(ap, char *)) {
+    DA_PUSH(result, next);
   }
-  va_end(args);
-
-  result.items = malloc(sizeof(result.items[0]) * result.size);
-  cbone_assert_with_errmsg(result.items != NULL,
-                     "Couldn't allocate memory for string array.");
-
-  result.size = 0;
-
-  result.items[result.size++] = first;
-
-  va_start(args, first);
-  for (char *next = va_arg(args, char *); next != NULL;
-       next = va_arg(args, char *)) {
-    result.items[result.size++] = next;
-  }
-  va_end(args);
-
+  va_end(ap);
   return result;
 }
 
 char *cbone_concat_str_array(char *sep, cbone_str_array s) {
   if (s.size == 0) {
-    return "";
+    char *s = malloc(1);
+    s[0] = '\0';
+    return s;
   }
-
-  size_t sep_len = strlen(sep);
-  size_t len = 0;
+  cbone_string_builder result = cbone_sb_new();
   for (size_t i = 0; i < s.size; i++) {
-    len += strlen(s.items[i]);
+    cbone_sb_sprintf(&result, "%s", s.items[i]);
     if (i < s.size - 1) {
-      len += sep_len;
+      cbone_sb_sprintf(&result, "%s", sep); /* put separator */
     }
   }
-
-  char *result = malloc((len + 1) * sizeof(char));
-  cbone_assert_with_errmsg(result != NULL, "Couldn't join string array.");
-
-  result[0] = '\0';
-
-  for (size_t i = 0; i < s.size; i++) {
-    strcat(result, s.items[i]);
-    if (i < s.size - 1) {
-      strcat(result, sep);
-    }
-  }
-
-  return result;
+  return cbone_sb_cstr(&result);
 }
-
-int cbone_errcode = 0;
 
 int cbone_cmd_append(cbone_cmd *cmd, char *s) {
   DA_PUSH(cmd->data, s);
