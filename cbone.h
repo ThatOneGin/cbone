@@ -32,12 +32,14 @@ SOFTWARE.
 #include <unistd.h>
 typedef int cbone_fd;
 #define path_sep "/"
+#define CBONE_FD_INVALID -1
 #elif defined(_WIN32)
 #include <process.h>
 #include <direct.h>
 #include <windows.h>
 typedef HANDLE cbone_fd;
 #define path_sep "\\"
+#define CBONE_FD_INVALID INVALID_HANDLE_VALUE
 #endif
 
 #ifdef __clang__
@@ -54,6 +56,8 @@ typedef HANDLE cbone_fd;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <stdbool.h>
 
 typedef struct {
   char **items;
@@ -77,11 +81,17 @@ typedef struct {
 extern int cbone_errcode;
 int cbone_cmd_append(cbone_cmd *cmd, char *s);
 void cbone_cmd_free(cbone_cmd *cmd);
-int cbone_cmd_run(cbone_cmd *cmd);
-int cbone_cmd_run_free(cbone_cmd *cmd);
+cbone_fd cbone_cmd_run_async(cbone_cmd *cmd);
+cbone_fd cbone_cmd_run_async_reset(cbone_cmd *cmd);
+int cbone_fd_wait(cbone_fd f);
+cbone_fd cbone_fd_open(char *path);
+void cbone_fd_close(cbone_fd f);
+int cbone_cmd_run_sync(cbone_cmd *cmd);
+int cbone_cmd_run_sync_reset(cbone_cmd *cmd);
 int cbone_modified_after(char *f1, char *f2);
 cbone_str_array cbone_make_str_array(char *first, ...);
 char *cbone_concat_str_array(char *delim, cbone_str_array s);
+char *cbone_str_concat(char *s1, char *s2);
 void cbone_assert_with_errmsg(int expr, char *errmsg);
 int cbone_dir_exists(cbone_str_array Array_path);
 int cbone_dir_mkdir(char *path);
@@ -192,7 +202,7 @@ DA_RESERVE: adjust the size of the dynamic array to expected size.
 #define CMD(...)                                                               \
   do {                                                                         \
     cbone_cmd cmd = {.data = cbone_make_str_array(__VA_ARGS__, NULL)};         \
-    cbone_cmd_run(&cmd);                                                       \
+    cbone_cmd_run_sync(&cmd);                                                  \
     cbone_cmd_free(&cmd);                                                      \
   } while (0)
 
@@ -256,24 +266,24 @@ void cbone_cmd_free(cbone_cmd *cmd) {
   DA_FREE(cmd->data);
 }
 
-int cbone_cmd_run(cbone_cmd *cmd) {
+cbone_fd cbone_cmd_run_async(cbone_cmd *cmd) {
   char *str_cmd = cbone_concat_str_array(" ", cmd->data);
-  cbone_log("CMD", str_cmd);
+  cbone_log("CMD", "%s", str_cmd);
 #if defined(__linux) || defined(__linux__)
-  pid_t pid = fork();
+  free(str_cmd); /* here we just log it */
 
+  pid_t pid = fork();
   if (pid < 0) {
     perror("fork");
-    cbone_errcode = 1;
+    return CBONE_FD_INVALID;
   } else if (pid == 0) {
     DA_PUSH(cmd->data, NULL);
-    execvp(cmd->data.items[0], (char *const *)cmd->data.items);
-
-    perror("execvp");
-    cbone_errcode = 1;
-  } else {
-    wait(NULL);
+    if (execvp(cmd->data.items[0], (char *const *)cmd->data.items) < 0) {
+      cbone_log(NULL, "Couldn't execute child process %s: %s", cmd->data.items[0], strerror(errno));
+    }
+    exit(EXIT_FAILURE);
   }
+  return pid;
 #elif defined(_WIN32)
   STARTUPINFO si;
   PROCESS_INFORMATION pi;
@@ -289,18 +299,59 @@ int cbone_cmd_run(cbone_cmd *cmd) {
     WaitForSingleObject(pi.hProcess, INFINITE);
     CloseHandle(pi.hThread);
   } else {
-    cbone_log("Error creating process: %ld\n", GetLastError());
+    cbone_log(NULL, "Couldn't execute child process: %ld", GetLastError());
     cbone_errcode = 1;
   }
-#endif
   free(str_cmd);
-  return cbone_errcode;
+  return pi.hProcess;
+#endif
 }
 
-int cbone_cmd_run_free(cbone_cmd *cmd) {
-  int status = cbone_cmd_run(cmd);
-  cbone_cmd_free(cmd);
-  return status;
+cbone_fd cbone_cmd_run_async_reset(cbone_cmd *cmd) {
+  cbone_fd pid = cbone_cmd_run_async(cmd);
+  cmd->data.size = 0;
+  return pid;
+}
+
+int cbone_fd_wait(cbone_fd f) {
+#if defined(__linux) || defined(__linux__)
+  int status;
+
+  if (waitpid(f, &status, 0) == -1) {
+    cbone_log(NULL, "Couldn't wait for child process: %s", strerror(errno));
+    exit(EXIT_FAILURE);
+  }
+  if (WIFEXITED(status)) {
+    int estatus = WEXITSTATUS(status);
+    if (estatus != 0) {
+      cbone_log(NULL, "Command exited with exit code %s.", estatus);
+      return false;
+    }
+  }
+  if (WIFSIGNALED(status)) {
+    cbone_log(NULL, "Command was terminated by signal %d.", WTERMSIG(status));
+    return false;
+  }
+  return true;
+#elif defined(_WIN32)
+  DWORD estatus;
+  DWORD status = WaitForSingleObject(f, INFINITE);
+
+  if (status == WAIT_FAILED) {
+    cbone_log(NULL, "Couldn't wait child process: %ld", GetLastError());
+    return false;
+  }
+  if (!GetExitCodeProcess(f, &estatus)) {
+    cbone_log(NULL, "Couldn't get child process exit code: %ld", GetLastError());
+    return false;
+  }
+  if (estatus != 0) {
+    cbone_log(NULL, "Command exited with code %lu.", estatus);
+    return false;
+  }
+  CloseHandle(f);
+  return true;
+#endif
 }
 
 cbone_fd cbone_fd_open(char *path) {
@@ -308,7 +359,7 @@ cbone_fd cbone_fd_open(char *path) {
   cbone_fd fl = open(path, O_RDONLY);
 
   if (fl < 0) {
-    perror("Couldn't open file");
+    cbone_log("Couldn't open %s (%s)", path, strerror(errno));
     exit(1);
   }
 #elif defined(_WIN32)
@@ -329,6 +380,17 @@ void cbone_fd_close(cbone_fd f) {
 #elif defined(__linux) || defined(__linux__)
   close(f);
 #endif
+}
+
+int cbone_cmd_run_sync(cbone_cmd *cmd) {
+  cbone_fd f = cbone_cmd_run_async(cmd);
+  return cbone_fd_wait(f);
+}
+
+int cbone_cmd_run_sync_free(cbone_cmd *cmd) {
+  int status = cbone_cmd_run_sync(cmd);
+  cmd->data.size = 0;
+  return status;
 }
 
 int cbone_modified_after(char *f1, char *f2) {
@@ -375,15 +437,15 @@ int cbone_modified_after(char *f1, char *f2) {
 #endif
 }
 
-#define REBUILD_SELF(argc, argv)                                             \
-do {                                                                         \
-  cbone_assert_with_errmsg(argc >= 1, "no args... how?");                    \
-  char *src_file = __FILE__;                                                 \
-  char *target = argv[0];                                                    \
-  if (cbone_modified_after(src_file, target)) {                              \
-    CMD(cc, "-o", target, src_file);                                         \
-  }                                                                          \
-} while (0)
+#define REBUILD_SELF(argc, argv)                            \
+  do {                                                      \
+    cbone_assert_with_errmsg(argc >= 1, "no args... how?"); \
+    char *src_file = __FILE__;                              \
+    char *target = argv[0];                                 \
+    if (cbone_modified_after(src_file, target)) {           \
+      CMD(cc, "-o", target, src_file);                      \
+    }                                                       \
+  } while (0)
 
 /*
 Returns if given path as an array of strings is a directory.
@@ -507,17 +569,19 @@ void cbone_log(const char *pref, const char *f, ...) {
 #ifndef CBONE_STRIP_GUARD
 #define CBONE_STRIP_GUARD
   #ifdef CBONE_STRIP_PREFIX
-    #define fd cbone_fd
-    #define str_array cbone_str_array
-    #define cmd cbone_cmd
-    #define string_builder cbone_string_builder
     #define cmd_append cbone_cmd_append
     #define cmd_free cbone_cmd_free
-    #define cmd_run cbone_cmd_run
-    #define cmd_run_free cbone_cmd_run_free
+    #define cmd_run_async cbone_cmd_run_async
+    #define cmd_run_async_reset cbone_cmd_run_async_reset
+    #define fd_wait cbone_fd_wait
+    #define fd_open cbone_fd_open
+    #define fd_close cbone_fd_close
+    #define cmd_run_sync cbone_cmd_run_sync
+    #define cmd_run_sync_reset cbone_cmd_run_sync_reset
     #define modified_after cbone_modified_after
     #define make_str_array cbone_make_str_array
     #define concat_str_array cbone_concat_str_array
+    #define str_concat cbone_str_concat
     #define assert_with_errmsg cbone_assert_with_errmsg
     #define dir_exists cbone_dir_exists
     #define dir_mkdir cbone_dir_mkdir
