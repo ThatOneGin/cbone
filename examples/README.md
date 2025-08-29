@@ -1,7 +1,6 @@
 # Examples
 
-this folder show some examples on how to use the library's functions
-in both ways: the one that leaks some memory and the one that try to free all respective mallocs
+this folder show some examples on how to use the library's functionalities.
 
 ### Contents
 
