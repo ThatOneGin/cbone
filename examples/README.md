@@ -3,11 +3,11 @@
 this folder show some examples on how to use the library's functions
 in both ways: the one that leaks some memory and the one that try to free all respective mallocs
 
-## files
+### Contents
 
-  - [build.c](./build.c) - Shows very basic functions and macros (overview).
-  - [dir.c](./dir.c) - Shows functions to manipulate directories.
-  - [sb.c](./sb.c) - String builders example
+  - [build](./build/) - Demonstrates how to use the library to build C files.
+  - [dirs.c](./setup-directories/dirs.c) - Shows functions to manipulate directories.
+  - [string-builder.c](./string-builder/string-builder.c) - String builders example
 
 # How to use
 

@@ -1,7 +1,3 @@
-/*
-** Example use of the functions that manipulate directories.
-*/
-
 #define CBONE_IMPL
 #include "cbone.h"
 
@@ -28,6 +24,5 @@ void setup_dirs(void) {
 int main(int argc, char **argv) {
   REBUILD_SELF(argc, argv);
   setup_dirs();
-  /* this variable is automatically set to 1 if any error occur. */
   return cbone_errcode;
 }
