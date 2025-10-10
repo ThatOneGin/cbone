@@ -7,6 +7,7 @@ this folder show some examples on how to use the library's functionalities.
   - [build](./build/) - Demonstrates how to use the library to build C files.
   - [dirs.c](./setup-directories/dirs.c) - Shows functions to manipulate directories.
   - [string-builder.c](./string-builder/string-builder.c) - String builders example
+  - [list-files](./list-files/list-files.c) - How to use cbone_foreach_file_in macro.
 
 # How to use
 

@@ -30,6 +30,7 @@ SOFTWARE.
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <dirent.h>
 typedef int cbone_fd;
 #define path_sep "/"
 #define CBONE_FD_INVALID -1
@@ -559,6 +560,44 @@ void cbone_log(const char *pref, const char *f, ...) {
   fprintf(stdout, "\n");
   va_end(ap);
 }
+
+/*
+** Iterate through a directory ignoring
+** '.' and '..'. Also declares a special variable
+** 'filename' which is the current file's name.
+*/
+#if defined(WIN32) || defined(_WIN32)
+#define cbone_foreach_file_in(__dir, body)                             \
+  {WIN32_FIND_DATA findFileData;                                       \
+    HANDLE dir = INVALID_HANDLE_VALUE;                                 \
+    char search_path[1024];                                            \
+    snprintf(search_path, 1024, "%s\\*", __dir);                       \
+    dir = FindFirstFile(search_path, &findFileData);                   \
+    DA_ASSERT(dir != INVALID_HANDLE_VALUE);                            \
+    do {                                                               \
+      const char * const filename =                                    \
+        findFileData.cFileName;                                        \
+      if (strcmp(filename, ".") != 0 && strcmp(filename, "..") != 0) { \
+        body;                                                          \
+      }                                                                \
+    } while (FindNextFile(dir, &findFileData) != 0);                   \
+    FindClose(dir);}
+#elif defined(__linux__) || defined(__linux)
+#define cbone_foreach_file_in(__dir, body)         \
+  {DIR *d;                                         \
+    struct dirent *dir;                            \
+    d = opendir(__dir);                            \
+    DA_ASSERT(d != NULL);                          \
+    while ((dir = readdir(d)) != NULL) {           \
+      const char * const filename = dir->d_name;   \
+      if (strcmp(filename, ".") != 0 &&            \
+          strcmp(filename, "..") != 0) {           \
+        body;                                      \
+      }                                            \
+    }                                              \
+    closedir(d);}
+#endif
+
 #endif // CBONE_IMPL
 #endif // CBONE_H
 
