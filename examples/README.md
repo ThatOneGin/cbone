@@ -15,23 +15,23 @@ this folder show some examples on how to use the library's functionalities.
 
 **customizable macros**
 
-- ```DA_DEFAULT_CAP```: minimum capacity for arrays
+- ```CBONE_DA_DEFAULT_CAP```: minimum capacity for arrays
 
-- ```DA_ASSERT```: assertion function used in errors
+- ```CBONE_ASSERT```: assertion function used in errors
 
 **function macros**
 
-- ```DA_FREE```: free a dynamic array.
+- ```CBONE_DA_FREE```: free a dynamic array.
 
-- ```DA_PUSH```: push an element to the front of an array.
+- ```CBONE_DA_PUSH```: push an element to the front of an array.
 
-- ```DA_POP```: remove an element on the front of the array.
+- ```CBONE_DA_POP```: remove an element on the front of the array.
 
-- ```DA_PUSH_AT```: push an element at position (adjust others to fit).
+- ```CBONE_DA_PUSH_AT```: push an element at position (adjust others to fit).
 
-- ```DA_POP_AT```: remove an element at position (adjust others to fill).
+- ```CBONE_DA_POP_AT```: remove an element at position (adjust others to fill).
 
-- ```DA_GET```: gets an element at given position, if the position is greater
+- ```CBONE_DA_GET```: gets an element at given position, if the position is greater
 than the size, it will give the last element. Otherwise if it underflows the size, the first.
 
 ## Declare dynamic arrays

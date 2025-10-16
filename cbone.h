@@ -107,58 +107,58 @@ void cbone_log(const char *pref, const char *f, ...);
 /*
 **Dynamic arrays for utilities
 
-DA_DEFAULT_CAP: minimum capacity for arrays (customizable)
-DA_ASSERT: assertion method used in errors
+CBONE_DA_DEFAULT_CAP: minimum capacity for arrays (customizable)
+CBONE_ASSERT: assertion method used in errors
 
-DA_FREE: free an dynamic array.
+CBONE_DA_FREE: free an dynamic array.
 
-DA_PUSH: push an element to the front of an array
+CBONE_DA_PUSH: push an element to the front of an array
 
-DA_POP: remove an element on the front of the array.
+CBONE_DA_POP: remove an element on the front of the array.
 
-DA_PUSH_AT: push an element at position (adjust others to fit)
+CBONE_DA_PUSH_AT: push an element at position (adjust others to fit)
 
-DA_POP_AT: remove an element at position (adjust others to fill)
+CBONE_DA_POP_AT: remove an element at position (adjust others to fill)
 
-DA_GET: gets an element at given position, if the position is greater
+CBONE_DA_GET: gets an element at given position, if the position is greater
 than the size, it will give the last element. Otherwise if it underflows, the
 first.
 
-DA_RESERVE: adjust the size of the dynamic array to expected size.
+CBONE_DA_RESERVE: adjust the size of the dynamic array to expected size.
 */
 
-#ifndef DA_DEFAULT_CAP
-#define DA_DEFAULT_CAP 64
+#ifndef CBONE_DA_DEFAULT_CAP
+#define CBONE_DA_DEFAULT_CAP 64
 #endif
 
-#ifndef DA_ASSERT
+#ifndef CBONE_ASSERT
 #include <assert.h>
-#define DA_ASSERT assert
+#define CBONE_ASSERT assert
 #endif
 
 #define CBONE_ERRLOG(msg) cbone_log("ERROR", msg)
 
-#define DA_FREE(arr)                                                           \
+#define CBONE_DA_FREE(arr)                                                     \
   do {                                                                         \
     if ((arr).capacity > 0) {                                                  \
       free((arr).items);                                                       \
     }                                                                          \
   } while (0)
 
-#define DA_PUSH(arr, elm)                                                      \
+#define CBONE_DA_PUSH(arr, elm)                                                \
   do {                                                                         \
-    DA_RESERVE(arr, (arr).size + 1);                                           \
+    CBONE_DA_RESERVE(arr, (arr).size + 1);                                     \
     (arr).items[(arr).size++] = (elm);                                         \
   } while (0)
 
-#define DA_POP(arr)                                                          \
+#define CBONE_DA_POP(arr)                                                    \
   do {                                                                       \
     if ((arr).capacity > 0 && (arr).size > 0) {                              \
       (arr).size--;                                                          \
     }                                                                        \
   } while (0)
 
-#define DA_POP_AT(arr, pos)                                                    \
+#define CBONE_DA_POP_AT(arr, pos)                                              \
   do {                                                                         \
     if ((pos) < (arr).size) {                                                  \
       for (size_t i = (pos); i < (size_t)(arr).size - 1; i++) {                \
@@ -168,9 +168,9 @@ DA_RESERVE: adjust the size of the dynamic array to expected size.
     }                                                                          \
   } while (0)
 
-#define DA_GET(arr, pos) ((pos) >= 0 ? (arr).size > (pos) ? (arr).items[(pos)] : (arr).items[(arr).size - 1] : (arr).items[0])
+#define CBONE_DA_GET(arr, pos) ((pos) >= 0 ? (arr).size > (pos) ? (arr).items[(pos)] : (arr).items[(arr).size - 1] : (arr).items[0])
 
-#define DA_PUSH_AT(arr, elm, pos)                                              \
+#define CBONE_DA_PUSH_AT(arr, elm, pos)                                        \
   do {                                                                         \
     if ((arr).size + (pos) < (arr).capacity) {                                 \
       for (size_t i = (arr).size; i > pos; i--) {                              \
@@ -180,16 +180,16 @@ DA_RESERVE: adjust the size of the dynamic array to expected size.
     }                                                                          \
   } while (0)
 
-#define DA_RESERVE(arr, new_cap)                                                 \
+#define CBONE_DA_RESERVE(arr, new_cap)                                           \
   do {                                                                           \
     if ((arr).capacity < (new_cap)) {                                            \
-      if ((arr).capacity == 0) (arr).capacity = DA_DEFAULT_CAP;                  \
+      if ((arr).capacity == 0) (arr).capacity = CBONE_DA_DEFAULT_CAP;            \
       while ((arr).capacity < new_cap) {                                         \
         (arr).capacity *= 2;                                                     \
       }                                                                          \
       (arr).items = realloc((arr).items, (arr).capacity * sizeof(*(arr).items)); \
       if ((arr).items == NULL) {                                                 \
-        CBONE_ERRLOG("DA_RESERVE fail: Realloc Error.");                         \
+        CBONE_ERRLOG("CBONE_DA_RESERVE fail: Realloc Error.");                   \
         exit(1);                                                                 \
       }                                                                          \
     }                                                                            \
@@ -231,12 +231,12 @@ cbone_str_array cbone_make_str_array(char *first, ...) {
   if (first == NULL) {
     return result;
   }
-  DA_PUSH(result, first);
+  CBONE_DA_PUSH(result, first);
   va_list ap;
   va_start(ap, first);
   for (char *next = va_arg(ap, char *); next != NULL;
        next = va_arg(ap, char *)) {
-    DA_PUSH(result, next);
+    CBONE_DA_PUSH(result, next);
   }
   va_end(ap);
   return result;
@@ -259,12 +259,12 @@ char *cbone_concat_str_array(char *sep, cbone_str_array s) {
 }
 
 int cbone_cmd_append(cbone_cmd *cmd, char *s) {
-  DA_PUSH(cmd->data, s);
+  CBONE_DA_PUSH(cmd->data, s);
   return cmd->data.size-1;
 }
 
 void cbone_cmd_free(cbone_cmd *cmd) {
-  DA_FREE(cmd->data);
+  CBONE_DA_FREE(cmd->data);
 }
 
 cbone_fd cbone_cmd_run_async(cbone_cmd *cmd) {
@@ -278,7 +278,7 @@ cbone_fd cbone_cmd_run_async(cbone_cmd *cmd) {
     perror("fork");
     return CBONE_FD_INVALID;
   } else if (pid == 0) {
-    DA_PUSH(cmd->data, NULL);
+    CBONE_DA_PUSH(cmd->data, NULL);
     if (execvp(cmd->data.items[0], (char *const *)cmd->data.items) < 0) {
       cbone_log(NULL, "Couldn't execute child process %s: %s", cmd->data.items[0], strerror(errno));
     }
@@ -525,7 +525,7 @@ int cbone_sb_sprintf(cbone_string_builder *sb, const char *f, ...) {
   va_start(ap, f);
   int n = vsnprintf(NULL, 0, f, ap);
   va_end(ap);
-  DA_RESERVE(*sb, sb->size + n + 1);
+  CBONE_DA_RESERVE(*sb, sb->size + n + 1);
   va_start(ap, f);
   n = vsnprintf(sb->items + sb->size, n+1, f, ap);
   va_end(ap);
@@ -543,7 +543,7 @@ int cbone_sb_int(cbone_string_builder *sb, int i) {
 
 size_t cbone_sb_free(cbone_string_builder *sb) {
   size_t nbytes = sb->size;
-  DA_FREE(*sb);
+  CBONE_DA_FREE(*sb);
   return nbytes;
 }
 
@@ -573,7 +573,7 @@ void cbone_log(const char *pref, const char *f, ...) {
     char search_path[1024];                                            \
     snprintf(search_path, 1024, "%s\\*", __dir);                       \
     dir = FindFirstFile(search_path, &findFileData);                   \
-    DA_ASSERT(dir != INVALID_HANDLE_VALUE);                            \
+    CBONE_ASSERT(dir != INVALID_HANDLE_VALUE);                         \
     do {                                                               \
       const char * const filename =                                    \
         findFileData.cFileName;                                        \
@@ -587,7 +587,7 @@ void cbone_log(const char *pref, const char *f, ...) {
   {DIR *d;                                         \
     struct dirent *dir;                            \
     d = opendir(__dir);                            \
-    DA_ASSERT(d != NULL);                          \
+    CBONE_ASSERT(d != NULL);                          \
     while ((dir = readdir(d)) != NULL) {           \
       const char * const filename = dir->d_name;   \
       if (strcmp(filename, ".") != 0 &&            \
@@ -631,6 +631,12 @@ void cbone_log(const char *pref, const char *f, ...) {
     #define sb_int cbone_sb_int
     #define sb_free cbone_sb_free
     #define sb_cstr cbone_sb_cstr
+    #define DA_FREE CBONE_DA_FREE
+    #define DA_PUSH CBONE_DA_PUSH
+    #define DA_POP CBONE_DA_POP
+    #define DA_PUSH_AT CBONE_DA_PUSH_AT
+    #define DA_POP_AT CBONE_DA_POP_AT
+    #define DA_GET CBONE_DA_GET
     // already defined in math.h
     // #define log cbone_log
   #endif // CBONE_STRIP_PREFIX

@@ -1,4 +1,5 @@
 #define CBONE_IMPL
+#define CBONE_STRIP_PREFIX
 #include "cbone.h"
 
 void setup_dirs(void) {
@@ -16,9 +17,9 @@ void setup_dirs(void) {
     cbone_dir_mkdir(src);
     free(src);
   }
-  DA_FREE(path);
-  DA_FREE(bin_dir);
-  DA_FREE(src_dir);
+  CBONE_DA_FREE(path);
+  CBONE_DA_FREE(bin_dir);
+  CBONE_DA_FREE(src_dir);
 }
 
 int main(int argc, char **argv) {
