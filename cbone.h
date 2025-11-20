@@ -388,7 +388,7 @@ int cbone_cmd_run_sync(cbone_cmd *cmd) {
   return cbone_fd_wait(f);
 }
 
-int cbone_cmd_run_sync_free(cbone_cmd *cmd) {
+int cbone_cmd_run_sync_reset(cbone_cmd *cmd) {
   int status = cbone_cmd_run_sync(cmd);
   cmd->data.size = 0;
   return status;
