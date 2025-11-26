@@ -40,7 +40,7 @@ void compile_obj_to_exe(void) {
 }
 
 int main(int argc, char **argv) {
-  REBUILD_SELF(argc, argv);
+  rebuild_self(argc, argv);
   compile_src_to_obj();
   compile_obj_to_exe();
   return 0;

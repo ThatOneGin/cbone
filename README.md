@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
   ** time the source file was saved, and if there's a difference,
   ** it tries to recompile itself.
   */
-  REBUILD_SELF(argc, argv);
+  cbone_rebuild_self(argc, argv);
 
   /*
   ** CMD is like writting in a shell, it creates the process with given arguments.
