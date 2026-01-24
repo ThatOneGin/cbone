@@ -271,7 +271,9 @@ void cbone_cmd_free(cbone_cmd *cmd) {
 
 cbone_fd cbone_cmd_run_async(cbone_cmd *cmd) {
   char *str_cmd = cbone_concat_str_array(" ", cmd->data);
+#ifndef CBONE_BE_QUIET
   cbone_log("CMD", "%s", str_cmd);
+#endif
 #if defined(__linux) || defined(__linux__)
   free(str_cmd); /* here we just log it */
 

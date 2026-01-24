@@ -19,6 +19,10 @@ this folder show some examples on how to use the library's functionalities.
 
 - ```CBONE_ASSERT```: assertion function used in errors
 
+- ```CBONE_STRIP_PREFIX```: remove the 'cbone_' prefix for library functions and macros
+
+- ```CBONE_BE_QUIET```: tells cbone to not log commands
+
 **function macros**
 
 - ```CBONE_DA_FREE```: free a dynamic array.
