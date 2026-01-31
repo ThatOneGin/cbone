@@ -23,6 +23,8 @@ this folder show some examples on how to use the library's functionalities.
 
 - ```CBONE_BE_QUIET```: tells cbone to not log commands
 
+- ```CBONE_DISABLE_BACKUP_FILE```: don't generate the .old file
+
 **function macros**
 
 - ```CBONE_DA_FREE```: free a dynamic array.

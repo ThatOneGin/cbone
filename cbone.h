@@ -80,54 +80,71 @@ typedef struct {
 ** variable to identify if any non-critical errors happened.
 */
 extern int cbone_errcode;
-int cbone_cmd_append(cbone_cmd *cmd, char *s);
-void cbone_cmd_free(cbone_cmd *cmd);
-cbone_fd cbone_cmd_run_async(cbone_cmd *cmd);
-cbone_fd cbone_cmd_run_async_reset(cbone_cmd *cmd);
+
+/* wait process 'f' to finish */
 int cbone_fd_wait(cbone_fd f);
+
 cbone_fd cbone_fd_open(char *path);
 void cbone_fd_close(cbone_fd f);
-int cbone_cmd_run_sync(cbone_cmd *cmd);
-int cbone_cmd_run_sync_reset(cbone_cmd *cmd);
 int cbone_fd_rename(const char *old_name, const char *new_name);
+
+/* checks if file 'f1' was modified after 'f2' */
 int cbone_fd_modified_after(char *f1, char *f2);
+
+int cbone_cmd_append(cbone_cmd *cmd, char *s);
+void cbone_cmd_free(cbone_cmd *cmd);
+
+/* run cmd asynchronously without waiting with cbone_fd_wait */
+cbone_fd cbone_cmd_run_async(cbone_cmd *cmd);
+
+/* same as cbone_cmd_run_async, but it clears the cmd array */
+cbone_fd cbone_cmd_run_async_reset(cbone_cmd *cmd);
+
+/* run cmd and wait for it to finish or die (if cmd fails, cbone crashes also) */
+int cbone_cmd_run_sync(cbone_cmd *cmd);
+
+/* same as cbone_cmd_run_async_reset, but is based on cbone_cmd_run_sync */
+int cbone_cmd_run_sync_reset(cbone_cmd *cmd);
+
+/* run grep -rn "#define cbone_rebuild_self" */
 void cbone_rebuild_self_(int argc, char **argv, char *source_file);
+
 cbone_str_array cbone_make_str_array(char *first, ...);
+
+/* concatenate string array and put `delim` at the end of each element */
 char *cbone_concat_str_array(char *delim, cbone_str_array s);
+
 char *cbone_str_concat(char *s1, char *s2);
 void cbone_assert_with_errmsg(int expr, char *errmsg);
+
+/* Log message with prefix 'pref' to the output as [pref]: message */
+void cbone_log(const char *pref, const char *f, ...);
+
+/*
+** Checks if path is a folder and exists
+** the return values:
+**  0: it doesn't exists
+**  1: it exists as a folder
+**  2: it exists, but not as a folder
+*/
 int cbone_dir_exists(cbone_str_array Array_path);
+/* create folder with giver path */
 int cbone_dir_mkdir(char *path);
+/* delete folder with given path (need to delete the content of it first) */
 int cbone_dir_rmdir(char *path);
+
 cbone_string_builder cbone_sb_new(void);
+
+/* append formatted string at the end of string builder */
 int cbone_sb_sprintf(cbone_string_builder *sb, const char *f, ...);
+
+/* append functions */
 int cbone_sb_char(cbone_string_builder *sb, const char c);
 int cbone_sb_int(cbone_string_builder *sb, int i);
 size_t cbone_sb_free(cbone_string_builder *sb);
+
+/* gets the char * part of the string builder (possibly not null terminated) */
 char *cbone_sb_cstr(cbone_string_builder *sb);
-void cbone_log(const char *pref, const char *f, ...);
-/*
-**Dynamic arrays for utilities
-
-CBONE_DA_DEFAULT_CAP: minimum capacity for arrays (customizable)
-CBONE_ASSERT: assertion method used in errors
-
-CBONE_DA_FREE: free an dynamic array.
-
-CBONE_DA_PUSH: push an element to the front of an array
-
-CBONE_DA_POP: remove an element on the front of the array.
-
-CBONE_DA_PUSH_AT: push an element at position (adjust others to fit)
-
-CBONE_DA_POP_AT: remove an element at position (adjust others to fill)
-
-CBONE_DA_GET: gets an element at given position, if the position is greater
-than the size, it will give the last element. Otherwise if it underflows, the
-first.
-
-CBONE_DA_RESERVE: adjust the size of the dynamic array to expected size.
-*/
 
 #ifndef CBONE_DA_DEFAULT_CAP
 #define CBONE_DA_DEFAULT_CAP 64
@@ -197,8 +214,48 @@ CBONE_DA_RESERVE: adjust the size of the dynamic array to expected size.
     }                                                                            \
   } while(0)
 
-/* Implementation section */
-#ifdef CBONE_IMPL
+/*
+** Checks if the cbone source file was modified
+** if it was, recompile the source and rerun it
+*/
+#define cbone_rebuild_self(argc, argv) cbone_rebuild_self_(argc, argv, __FILE__)
+
+/*
+** Iterate through a directory ignoring
+** '.' and '..'. Also declares a special variable
+** 'filename' which is the current file's name.
+*/
+#if defined(WIN32) || defined(_WIN32)
+#define cbone_foreach_file_in(__dir, body)                             \
+  {WIN32_FIND_DATA findFileData;                                       \
+    HANDLE dir = INVALID_HANDLE_VALUE;                                 \
+    char search_path[1024];                                            \
+    snprintf(search_path, 1024, "%s\\*", __dir);                       \
+    dir = FindFirstFile(search_path, &findFileData);                   \
+    CBONE_ASSERT(dir != INVALID_HANDLE_VALUE);                         \
+    do {                                                               \
+      const char * const filename =                                    \
+        findFileData.cFileName;                                        \
+      if (strcmp(filename, ".") != 0 && strcmp(filename, "..") != 0) { \
+        body;                                                          \
+      }                                                                \
+    } while (FindNextFile(dir, &findFileData) != 0);                   \
+    FindClose(dir);}
+#elif defined(__linux__) || defined(__linux)
+#define cbone_foreach_file_in(__dir, body)         \
+  {DIR *d;                                         \
+    struct dirent *dir;                            \
+    d = opendir(__dir);                            \
+    CBONE_ASSERT(d != NULL);                       \
+    while ((dir = readdir(d)) != NULL) {           \
+      const char * const filename = dir->d_name;   \
+      if (strcmp(filename, ".") != 0 &&            \
+          strcmp(filename, "..") != 0) {           \
+        body;                                      \
+      }                                            \
+    }                                              \
+    closedir(d);}
+#endif
 
 #define PATH(...) cbone_concat_str_array(path_sep, cbone_make_str_array(__VA_ARGS__, NULL))
 #define CONCAT(...) cbone_concat_str_array("", cbone_make_str_array(__VA_ARGS__, NULL))
@@ -208,6 +265,9 @@ CBONE_DA_RESERVE: adjust the size of the dynamic array to expected size.
     cbone_cmd_run_sync(&cmd);                                                  \
     cbone_cmd_free(&cmd);                                                      \
   } while (0)
+
+/* Implementation section */
+#ifdef CBONE_IMPL
 
 int cbone_errcode = 0;
 
@@ -271,9 +331,7 @@ void cbone_cmd_free(cbone_cmd *cmd) {
 
 cbone_fd cbone_cmd_run_async(cbone_cmd *cmd) {
   char *str_cmd = cbone_concat_str_array(" ", cmd->data);
-#ifndef CBONE_BE_QUIET
   cbone_log("CMD", "%s", str_cmd);
-#endif
 #if defined(__linux) || defined(__linux__)
   free(str_cmd); /* here we just log it */
 
@@ -473,14 +531,6 @@ void cbone_rebuild_self_(int argc, char **argv, char *source_file) {
   }
 }
 
-#define cbone_rebuild_self(argc, argv) cbone_rebuild_self_(argc, argv, __FILE__)
-
-/*
-Returns if given path as an array of strings is a directory.
-Return values:
-  0: doesn't exists.
-  1: exists.
-  2: not a directory, but exists.*/
 int cbone_dir_exists(cbone_str_array Array_path) {
   char *path = cbone_concat_str_array(path_sep, Array_path);
   int result;
@@ -515,7 +565,6 @@ int cbone_dir_exists(cbone_str_array Array_path) {
   return result;
 }
 
-/* makes a folder with given path in form of a string. */
 int cbone_dir_mkdir(char *path) {
   int result;
 
@@ -527,9 +576,6 @@ int cbone_dir_mkdir(char *path) {
   return result;
 }
 
-/* this function only delete empty directories */
-/* so if using to delete a folder with files, you should */
-/* delete all files in that folder */
 int cbone_dir_rmdir(char *path) {
   #ifdef _WIN32
     return RemoveDirectory(path);
@@ -579,6 +625,7 @@ char *cbone_sb_cstr(cbone_string_builder *sb) {
 }
 
 void cbone_log(const char *pref, const char *f, ...) {
+#ifndef CBONE_BE_QUIET
   if (pref == NULL) pref = "LOG";
   va_list ap;
   va_start(ap, f);
@@ -586,44 +633,11 @@ void cbone_log(const char *pref, const char *f, ...) {
   vfprintf(stdout, f, ap);
   fprintf(stdout, "\n");
   va_end(ap);
-}
-
-/*
-** Iterate through a directory ignoring
-** '.' and '..'. Also declares a special variable
-** 'filename' which is the current file's name.
-*/
-#if defined(WIN32) || defined(_WIN32)
-#define cbone_foreach_file_in(__dir, body)                             \
-  {WIN32_FIND_DATA findFileData;                                       \
-    HANDLE dir = INVALID_HANDLE_VALUE;                                 \
-    char search_path[1024];                                            \
-    snprintf(search_path, 1024, "%s\\*", __dir);                       \
-    dir = FindFirstFile(search_path, &findFileData);                   \
-    CBONE_ASSERT(dir != INVALID_HANDLE_VALUE);                         \
-    do {                                                               \
-      const char * const filename =                                    \
-        findFileData.cFileName;                                        \
-      if (strcmp(filename, ".") != 0 && strcmp(filename, "..") != 0) { \
-        body;                                                          \
-      }                                                                \
-    } while (FindNextFile(dir, &findFileData) != 0);                   \
-    FindClose(dir);}
-#elif defined(__linux__) || defined(__linux)
-#define cbone_foreach_file_in(__dir, body)         \
-  {DIR *d;                                         \
-    struct dirent *dir;                            \
-    d = opendir(__dir);                            \
-    CBONE_ASSERT(d != NULL);                          \
-    while ((dir = readdir(d)) != NULL) {           \
-      const char * const filename = dir->d_name;   \
-      if (strcmp(filename, ".") != 0 &&            \
-          strcmp(filename, "..") != 0) {           \
-        body;                                      \
-      }                                            \
-    }                                              \
-    closedir(d);}
+#else
+  (void)pref;
+  (void)f;
 #endif
+}
 
 #endif // CBONE_IMPL
 #endif // CBONE_H
