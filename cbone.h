@@ -67,7 +67,14 @@ typedef struct {
 } cbone_str_array;
 
 typedef struct {
+  cbone_fd out;
+  cbone_fd err;
+  cbone_fd in;
+} cbone_output;
+
+typedef struct {
   cbone_str_array data;
+  cbone_output output;
 } cbone_cmd;
 
 typedef struct {
@@ -84,7 +91,8 @@ extern int cbone_errcode;
 /* wait process 'f' to finish */
 int cbone_fd_wait(cbone_fd f);
 
-cbone_fd cbone_fd_open(char *path);
+cbone_fd cbone_fd_open_read(char *path);
+cbone_fd cbone_fd_open_write(char *path);
 void cbone_fd_close(cbone_fd f);
 int cbone_fd_rename(const char *old_name, const char *new_name);
 
@@ -266,6 +274,24 @@ char *cbone_sb_cstr(cbone_string_builder *sb);
     cbone_cmd_free(&cmd);                                                      \
   } while (0)
 
+/*
+** configure cmd standard streams such as stdout to another file:
+**   cbone_fd outfd = cbone_fd_open_write("output.txt");
+**   cbone_cmd cmd = {0};
+**   cbone_cmd_redirect(&cmd, .out = outfd); // stdout is now redirected to output.txt
+**   cbone_cmd_append(&cmd, "echo");
+**   cbone_cmd_append(&cmd, "Hello, world!");
+**   cbone_cmd_run_sync(&cmd);
+**   cbone_cmd_free(&cmd);
+**   if (outfd != CBONE_FD_INVALID)
+**     cbone_fd_close(outfd);
+**
+** this will write 'Hello, world!' to output.txt if
+** the file descriptor is not CBONE_FD_INVALID
+*/
+#define cbone_cmd_redirect(cmd, ...) \
+  (cmd)->output=(cbone_output){CBONE_FD_INVALID, __VA_ARGS__}
+
 /* Implementation section */
 #ifdef CBONE_IMPL
 
@@ -340,6 +366,24 @@ cbone_fd cbone_cmd_run_async(cbone_cmd *cmd) {
     perror("fork");
     return CBONE_FD_INVALID;
   } else if (pid == 0) {
+    if (dup2(cmd->output.out, STDOUT_FILENO) < 0) {
+      cbone_log(NULL,
+        "Couldn't setup standard IO "
+        "streams for child process: %s", strerror(errno));
+      exit(1);
+    }
+    if (dup2(cmd->output.in, STDIN_FILENO) < 0) {
+      cbone_log(NULL,
+        "Couldn't setup standard IO "
+        "streams for child process: %s", strerror(errno));
+      exit(1);
+    }
+    if (dup2(cmd->output.err, STDERR_FILENO) < 0) {
+      cbone_log(NULL,
+        "Couldn't setup standard IO "
+        "streams for child process: %s", strerror(errno));
+      exit(1);
+    }
     CBONE_DA_PUSH(cmd->data, NULL);
     if (execvp(cmd->data.items[0], (char *const *)cmd->data.items) < 0) {
       cbone_log(NULL, "Couldn't execute child process %s: %s", cmd->data.items[0], strerror(errno));
@@ -353,17 +397,21 @@ cbone_fd cbone_cmd_run_async(cbone_cmd *cmd) {
   ZeroMemory(&si, sizeof(si));
   ZeroMemory(&pi, sizeof(pi));
   
-  si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-  si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+  si.hStdOutput = cmd->output.out == CBONE_FD_INVALID ?
+    GetStdHandle(STD_OUTPUT_HANDLE) : cmd->output.out;
+  si.hStdInput = cmd->output.in == CBONE_FD_INVALID ?
+    GetStdHandle(STD_INPUT_HANDLE) : cmd->output.in;
+  si.hStdError = cmd->output.err == CBONE_FD_INVALID ?
+    GetStdHandle(STD_ERROR_HANDLE) : cmd->output.err;
   si.dwFlags |= STARTF_USESTDHANDLES;
   si.cb = sizeof(si);
 
   if (CreateProcess(NULL, str_cmd, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
-    WaitForSingleObject(pi.hProcess, INFINITE);
     CloseHandle(pi.hThread);
   } else {
-    cbone_log(NULL, "Couldn't execute child process: %ld", GetLastError());
-    cbone_errcode = 1;
+    cbone_log(NULL, "Couldn't execute child process: %lu", GetLastError());
+    free(str_cmd);
+    return CBONE_FD_INVALID;
   }
   free(str_cmd);
   return pi.hProcess;
@@ -377,6 +425,7 @@ cbone_fd cbone_cmd_run_async_reset(cbone_cmd *cmd) {
 }
 
 int cbone_fd_wait(cbone_fd f) {
+  if (f == CBONE_FD_INVALID) return false;
 #if defined(__linux) || defined(__linux__)
   int status;
 
@@ -417,16 +466,35 @@ int cbone_fd_wait(cbone_fd f) {
 #endif
 }
 
-cbone_fd cbone_fd_open(char *path) {
+cbone_fd cbone_fd_open_read(char *path) {
 #if defined(__linux) || defined(__linux__)
   cbone_fd fl = open(path, O_RDONLY);
 
   if (fl < 0) {
-    cbone_log("Couldn't open %s (%s)", path, strerror(errno));
+    cbone_log(NULL, "Couldn't open %s (%s)", path, strerror(errno));
     exit(1);
   }
 #elif defined(_WIN32)
   cbone_fd fl = CreateFile(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,
+                     FILE_ATTRIBUTE_NORMAL, NULL);
+
+  if (fl == INVALID_HANDLE_VALUE) {
+    cbone_log(NULL, "Couldn't open %s (%ld)", path, GetLastError());
+    exit(1);
+  }
+#endif
+  return fl;
+}
+
+cbone_fd cbone_fd_open_write(char *path) {
+#if defined(__linux) || defined(__linux__)
+  cbone_fd fl = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+  if (fl < 0) {
+    cbone_log(NULL, "Couldn't open %s (%s)", path, strerror(errno));
+    exit(1);
+  }
+#elif defined(_WIN32)
+  cbone_fd fl = CreateFile(path, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS,
                      FILE_ATTRIBUTE_NORMAL, NULL);
 
   if (fl == INVALID_HANDLE_VALUE) {
@@ -459,8 +527,8 @@ int cbone_cmd_run_sync_reset(cbone_cmd *cmd) {
 int cbone_fd_modified_after(char *f1, char *f2) {
 #ifdef _WIN32
   FILETIME file1_time, file2_time;
-  cbone_fd file1 = cbone_fd_open(f1);
-  cbone_fd file2 = cbone_fd_open(f2);
+  cbone_fd file1 = cbone_fd_open_read(f1);
+  cbone_fd file2 = cbone_fd_open_read(f2);
 
   if (!GetFileTime(file1, NULL, NULL, &file1_time)) {
     cbone_log("Couldn't get time of %s (%ld)", f1, GetLastError());
@@ -650,12 +718,13 @@ void cbone_log(const char *pref, const char *f, ...) {
 #define CBONE_STRIP_GUARD
   #ifdef CBONE_STRIP_PREFIX
     #define rebuild_self cbone_rebuild_self
+    #define cmd_redirect cbone_cmd_redirect
     #define cmd_append cbone_cmd_append
     #define cmd_free cbone_cmd_free
     #define cmd_run_async cbone_cmd_run_async
     #define cmd_run_async_reset cbone_cmd_run_async_reset
     #define fd_wait cbone_fd_wait
-    #define fd_open cbone_fd_open
+    #define fd_open cbone_fd_open_read
     #define fd_close cbone_fd_close
     #define cmd_run_sync cbone_cmd_run_sync
     #define cmd_run_sync_reset cbone_cmd_run_sync_reset
