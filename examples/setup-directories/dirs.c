@@ -25,5 +25,5 @@ void setup_dirs(void) {
 int main(int argc, char **argv) {
   rebuild_self(argc, argv);
   setup_dirs();
-  return cbone_errcode;
+  return 0;
 }

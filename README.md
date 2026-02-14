@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
   */
   CMD(cc, "-o", "main", "main.c", "-Wall", "-Wextra", "-pedantic");
 
-  return cbone_errcode;
+  return 0;
 }
 ```
 

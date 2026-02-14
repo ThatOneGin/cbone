@@ -83,11 +83,6 @@ typedef struct {
   size_t capacity;
 } cbone_string_builder;
 
-/*
-** variable to identify if any non-critical errors happened.
-*/
-extern int cbone_errcode;
-
 /* wait process 'f' to finish */
 int cbone_fd_wait(cbone_fd f);
 
@@ -294,8 +289,6 @@ char *cbone_sb_cstr(cbone_string_builder *sb);
 
 /* Implementation section */
 #ifdef CBONE_IMPL
-
-int cbone_errcode = 0;
 
 char *cbone_str_concat(char *s1, char *s2) {
   char *buffer = malloc(strlen(s1) + strlen(s2) + 1);
@@ -532,14 +525,12 @@ int cbone_fd_modified_after(char *f1, char *f2) {
 
   if (!GetFileTime(file1, NULL, NULL, &file1_time)) {
     cbone_log("Couldn't get time of %s (%ld)", f1, GetLastError());
-    cbone_errcode = 1;
     return 0;
   }
   cbone_fd_close(file1);
 
   if (!GetFileTime(file2, NULL, NULL, &file2_time)) {
     cbone_log("Couldn't get time of %s (%ld)", f2, GetLastError());
-    cbone_errcode = 1;
     return 0;
   }
   cbone_fd_close(file2);
@@ -550,7 +541,6 @@ int cbone_fd_modified_after(char *f1, char *f2) {
 
   if (stat(f1, &flstat_buffer) < 0) {
     perror("Couldn't get file time");
-    cbone_errcode = 1;
     return 0;
   }
 
@@ -558,7 +548,6 @@ int cbone_fd_modified_after(char *f1, char *f2) {
 
   if (stat(f2, &flstat_buffer) < 0) {
     perror("Couldn't get file time");
-    cbone_errcode = 1;
     return 0;
   }
 
