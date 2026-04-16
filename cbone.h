@@ -103,7 +103,7 @@ cbone_fd cbone_cmd_run_async(cbone_cmd *cmd);
 /* same as cbone_cmd_run_async, but it clears the cmd array */
 cbone_fd cbone_cmd_run_async_reset(cbone_cmd *cmd);
 
-/* run cmd and wait for it to finish or die (if cmd fails, cbone crashes also) */
+/* run cmd and wait for it to finish returning true or false wether the program fails or not */
 int cbone_cmd_run_sync(cbone_cmd *cmd);
 
 /* same as cbone_cmd_run_async_reset, but is based on cbone_cmd_run_sync */
