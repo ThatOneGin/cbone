@@ -429,7 +429,7 @@ int cbone_fd_wait(cbone_fd f) {
   if (WIFEXITED(status)) {
     int estatus = WEXITSTATUS(status);
     if (estatus != 0) {
-      cbone_log(NULL, "Command exited with exit code %s.", estatus);
+      cbone_log(NULL, "Command exited with exit code %d.", estatus);
       return false;
     }
   }
