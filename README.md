@@ -41,10 +41,10 @@ int main(int argc, char **argv) {
   cbone_rebuild_self(argc, argv);
 
   /*
-  ** CMD is like writting in a shell, it creates the process with given arguments.
+  ** cbone_util_cmd is like writting in a shell, it creates the process with given arguments.
   ** cc is a macro used to identify which C compiler was used to compile the source file.
   */
-  CMD(cc, "-o", "main", "main.c", "-Wall", "-Wextra", "-pedantic");
+  cbone_util_cmd(cc, "-o", "main", "main.c", "-Wall", "-Wextra", "-pedantic");
 
   return 0;
 }

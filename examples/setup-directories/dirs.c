@@ -17,9 +17,9 @@ void setup_dirs(void) {
     cbone_dir_mkdir(src);
     free(src);
   }
-  CBONE_DA_FREE(path);
-  CBONE_DA_FREE(bin_dir);
-  CBONE_DA_FREE(src_dir);
+  cbone_da_free(path);
+  cbone_da_free(bin_dir);
+  cbone_da_free(src_dir);
 }
 
 int main(int argc, char **argv) {

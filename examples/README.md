@@ -17,7 +17,7 @@ this folder show some examples on how to use the library's functionalities.
 
 - ```CBONE_DA_DEFAULT_CAP```: minimum capacity for arrays
 
-- ```CBONE_ASSERT```: assertion function used in errors
+- ```cbone_assert```: assertion function used in errors
 
 - ```CBONE_STRIP_PREFIX```: remove the 'cbone_' prefix for library functions and macros
 
@@ -27,18 +27,23 @@ this folder show some examples on how to use the library's functionalities.
 
 **function macros**
 
-- ```CBONE_DA_FREE```: free a dynamic array.
 
-- ```CBONE_DA_PUSH```: push an element to the front of an array.
+- ```cbone_da_free```: free a dynamic array.
 
-- ```CBONE_DA_POP```: remove an element on the front of the array.
+- ```cbone_da_push```: push an element to the front of an array.
 
-- ```CBONE_DA_PUSH_AT```: push an element at position (adjust others to fit).
+- ```cbone_da_pop```: remove an element on the front of the array.
 
-- ```CBONE_DA_POP_AT```: remove an element at position (adjust others to fill).
+- ```cbone_da_push_at```: push an element at position (adjust others to fit).
 
-- ```CBONE_DA_GET```: gets an element at given position, if the position is greater
+- ```cbone_da_pop_at```: remove an element at position (adjust others to fill).
+
+- ```cbone_da_get```: gets an element at given position, if the position is greater
 than the size, it will give the last element. Otherwise if it underflows the size, the first.
+
+> [!NOTE]
+> function macros that has the prefix `cbone_util_` will have their stripped version
+> as an all uppercase word, for example, `cbone_util_cmd` will be only `CMD` 
 
 ## Declare dynamic arrays
 
