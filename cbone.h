@@ -215,6 +215,9 @@ char *cbone_sb_cstr(cbone_string_builder *sb);
     }                                                                            \
   } while(0)
 
+#define cbone_da_foreach(arr, T, v) \
+  for (T *v = (arr).items; (v - (arr).items) < (arr).size; v++)
+
 /*
 ** Checks if the cbone source file was modified
 ** if it was, recompile the source and rerun it
@@ -738,6 +741,7 @@ void cbone_log(const char *pref, const char *f, ...) {
     #define da_pop cbone_da_pop
     #define da_push_at cbone_da_push_at
     #define da_pop_at cbone_da_pop_at
+    #define da_foreach cbone_da_foreach
     // already defined in math.h
     // #define log cbone_log
   #endif // CBONE_STRIP_PREFIX
